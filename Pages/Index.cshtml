@@ -1,0 +1,542 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dual-Camera Drone Triangulation";
+}
+
+<style>
+    :root {
+        --bg-dark: #0F1729;
+        --bg-card: #1A2332;
+        --accent-blue: #3B82F6;
+        --accent-cyan: #06B6D4;
+        --accent-green: #22C55E;
+        --accent-red: #EF4444;
+        --accent-amber: #F59E0B;
+        --text-primary: #F1F5F9;
+        --text-secondary: #94A3B8;
+        --text-dim: #64748B;
+        --border: #334155;
+    }
+    body { background: var(--bg-dark) !important; color: var(--text-primary); }
+    .page-wrapper { max-width: 1440px; margin: 0 auto; padding: 16px; }
+    .page-title {
+        text-align: center; font-size: 1.6rem; font-weight: 800;
+        background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        margin-bottom: 6px; letter-spacing: -0.5px;
+    }
+    .page-subtitle { text-align: center; color: var(--text-dim); font-size: 0.82rem; margin-bottom: 16px; }
+    .ctrl-panel {
+        background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+        padding: 14px 20px; margin-bottom: 14px; display: flex; gap: 24px; flex-wrap: wrap; align-items: center;
+    }
+    .ctrl-panel label { color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; }
+    .ctrl-val { color: var(--accent-cyan); font-weight: 800; font-size: 1rem; }
+    .ctrl-group { flex: 1; min-width: 170px; }
+    .ctrl-panel input[type=range] { width: 100%; accent-color: var(--accent-cyan); margin-top: 4px; }
+    .ctrl-panel input[type=number] {
+        background: var(--bg-dark); color: var(--accent-cyan); border: 1px solid var(--border);
+        border-radius: 6px; padding: 4px 8px; width: 100%; font-weight: 700; font-size: 0.9rem;
+    }
+    .canvas-row { display: flex; gap: 14px; flex-wrap: wrap; }
+    .canvas-card {
+        flex: 1; min-width: 300px; background: var(--bg-card); border: 1px solid var(--border);
+        border-radius: 12px; overflow: hidden;
+    }
+    .card-hdr { padding: 10px 16px; font-weight: 700; font-size: 0.85rem; }
+    .card-hdr.blue { background: linear-gradient(135deg, #1E3A8A, #1D4ED8); color: white; }
+    .card-hdr.green { background: linear-gradient(135deg, #065F46, #059669); color: white; }
+    .canvas-wrap { padding: 8px; text-align: center; }
+    .canvas-wrap canvas { width: 100%; max-width: 680px; border-radius: 8px; cursor: crosshair; border: 1px solid var(--border); }
+    .info-row {
+        padding: 6px 16px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 16px;
+        font-size: 0.78rem; color: var(--text-secondary);
+    }
+    .info-row b { color: var(--text-primary); }
+    .val-blue { color: var(--accent-blue) !important; font-weight: 800; }
+    .val-green { color: var(--accent-green) !important; font-weight: 800; }
+    .val-cyan { color: var(--accent-cyan) !important; font-weight: 800; }
+    .val-amber { color: var(--accent-amber) !important; font-weight: 800; }
+    .proof-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-weight: 800; font-size: 0.75rem; }
+    .proof-ok { background: rgba(34,197,94,0.15); color: var(--accent-green); border: 1px solid rgba(34,197,94,0.3); }
+    .proof-err { background: rgba(239,68,68,0.15); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.3); }
+    .input-row {
+        padding: 8px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+        border-top: 1px solid var(--border);
+    }
+    .input-row label { color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+    .input-row input[type=number] {
+        background: var(--bg-dark); border: 1px solid var(--border); border-radius: 6px;
+        padding: 5px 8px; width: 90px; font-weight: 700; font-size: 0.85rem;
+    }
+    .input-row .inp-blue { color: var(--accent-blue); }
+    .input-row .inp-green { color: var(--accent-green); }
+    .btn-apply {
+        padding: 5px 14px; border: none; border-radius: 6px; font-weight: 700;
+        font-size: 0.78rem; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-apply.blue { background: var(--accent-blue); color: white; }
+    .btn-apply.blue:hover { background: #2563EB; box-shadow: 0 0 12px rgba(59,130,246,0.4); }
+    .btn-apply.green { background: var(--accent-green); color: #0F172A; }
+    .btn-apply.green:hover { background: #16A34A; box-shadow: 0 0 12px rgba(34,197,94,0.4); }
+</style>
+
+<div class="page-wrapper">
+    <div class="page-title">🚁 Dual-Camera Drone Triangulation Proof System</div>
+    <div class="page-subtitle">คลิกลากจุดโดรนสีฟ้าในภาพซ้าย — สังเกตจุดตกบนเส้น Image Plane (FOV) ว่าจะเปลี่ยนตามตำแหน่งโดรน</div>
+
+    <div class="ctrl-panel">
+        <div class="ctrl-group">
+            <label>📏 Baseline (B) = <span class="ctrl-val" id="lblB">20.0</span> m</label>
+            <input type="range" id="sldrB" min="5" max="60" step="0.5" value="20" oninput="onCfg()">
+        </div>
+        <div class="ctrl-group">
+            <label>🎯 Convergence (R) = <span class="ctrl-val" id="lblR">100</span> m</label>
+            <input type="range" id="sldrR" min="30" max="250" step="1" value="100" oninput="onCfg()">
+        </div>
+        <div class="ctrl-group">
+            <label>🔭 Focal Length (f) = <span class="ctrl-val" id="lblF">100.5</span></label>
+            <input type="number" id="inpF" value="100.5" step="0.1" onchange="onCfg()">
+        </div>
+    </div>
+
+    <div class="canvas-row">
+        <div class="canvas-card">
+            <div class="card-hdr blue">🎯 ภาพที่ 1 — จำลองตำแหน่งโดรน (คลิกลากจุดฟ้าได้)</div>
+            <div class="canvas-wrap"><canvas id="cv1" width="680" height="440"></canvas></div>
+            <div class="input-row">
+                <label>📍 กำหนดพิกัดโดรน:</label>
+                <label>X</label><input type="number" id="inpDroneX" class="inp-blue" value="80" step="1">
+                <label>Y</label><input type="number" id="inpDroneY" class="inp-blue" value="15" step="1">
+                <button class="btn-apply blue" onclick="applyDroneXY()">✓ Apply</button>
+            </div>
+            <div class="info-row">
+                <div><b>พิกัดโดรน:</b> <span class="val-blue" id="oPos">-</span></div>
+                <div><b>ระยะจากกล้อง:</b> <span class="val-cyan" id="oDist">-</span></div>
+                <div><b>d1 (กล้องบน):</b> <span class="val-amber" id="oD1">-</span></div>
+                <div><b>d2 (กล้องล่าง):</b> <span class="val-amber" id="oD2">-</span></div>
+            </div>
+        </div>
+        <div class="canvas-card">
+            <div class="card-hdr green">📐 ภาพที่ 2 — พิสูจน์สูตรตรีโกณมิติย้อนกลับ</div>
+            <div class="canvas-wrap"><canvas id="cv2" width="680" height="440"></canvas></div>
+            <div class="input-row">
+                <label>📐 กำหนดค่าภาพ:</label>
+                <label>d1</label><input type="number" id="inpD1" class="inp-green" value="0" step="0.1">
+                <label>d2</label><input type="number" id="inpD2" class="inp-green" value="0" step="0.1">
+                <button class="btn-apply green" onclick="applyD1D2()">✓ Apply</button>
+            </div>
+            <div class="info-row">
+                <div><b>พิกัดถอดสูตร:</b> <span class="val-green" id="oCalc">-</span></div>
+                <div><b>สถานะ:</b> <span id="oProof" class="proof-badge proof-ok">-</span></div>
+                <div><b>β1 กล้องบน:</b> <span class="val-cyan" id="oB1">-</span>°</div>
+                <div><b>β2 กล้องล่าง:</b> <span class="val-cyan" id="oB2">-</span>°</div>
+                <div><b>Δβ มุมตัด:</b> <span class="val-amber" id="oDB">-</span>°</div>
+                <div><b>Error:</b> <span class="val-green" id="oErr">-</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ====== Config & State ======
+let C = { baseline: 20, convDist: 100, focal: 100.5 };
+let drone = { x: 80, y: 15 };
+let dragging = false;
+const W = 680, H = 440;
+const cv1 = document.getElementById('cv1'), x1 = cv1.getContext('2d');
+const cv2 = document.getElementById('cv2'), x2 = cv2.getContext('2d');
+
+// ====== World ↔ Canvas ======
+const V = { x0: -50, x1: 230, y0: -90, y1: 90 };
+function wx(r) { return W - 50 - ((r - V.x0) / (V.x1 - V.x0)) * (W - 90); }
+function wy(r) { return H / 2 - (r / (V.y1 - V.y0)) * (H - 60); }
+function rx(c) { return V.x0 + ((W - 50 - c) / (W - 90)) * (V.x1 - V.x0); }
+function ry(c) { return (H / 2 - c) / (H - 60) * (V.y1 - V.y0); }
+
+// ====== Math ======
+function fwdCalc(tx, ty) {
+    const hb = C.baseline / 2;
+    const a1 = Math.atan2(ty - hb, tx), a2 = Math.atan2(ty + hb, tx);
+    const cv1a = Math.atan2(-hb, C.convDist), cv2a = Math.atan2(hb, C.convDist);
+    return { d1: Math.tan(a1 - cv1a) * C.focal, d2: Math.tan(a2 - cv2a) * C.focal };
+}
+function revCalc(d1, d2) {
+    const hb = C.baseline / 2;
+    const t1c = Math.atan2(-hb, C.convDist), t2c = Math.atan2(hb, C.convDist);
+    const b1 = t1c + Math.atan2(d1, C.focal), b2 = t2c + Math.atan2(d2, C.focal);
+    const sd = Math.sin(b2 - b1);
+    if (Math.abs(sd) < 1e-9) return null;
+    const t1 = (C.baseline * Math.cos(b2)) / sd;
+    return { x: t1 * Math.cos(b1), y: hb + t1 * Math.sin(b1), b1: b1*180/Math.PI, b2: b2*180/Math.PI, db: (b2-b1)*180/Math.PI };
+}
+
+// ====== Image Plane Geometry ======
+// Calculates the image plane line endpoints and ray intersection point for a camera
+function calcImagePlane(camX, camY, convX, convY, droneX, droneY, planeHalfLen) {
+    // Optical axis direction (camera → convergence)
+    const axDx = convX - camX, axDy = convY - camY;
+    const axLen = Math.hypot(axDx, axDy);
+    const ux = axDx / axLen, uy = axDy / axLen; // unit optical axis
+
+    // Image plane tangent (perpendicular to optical axis, rotated 90° CCW)
+    const tx = -uy, ty = ux;
+
+    // Image plane endpoints (centered at convergence point)
+    const ip1 = { x: convX + tx * planeHalfLen, y: convY + ty * planeHalfLen };
+    const ip2 = { x: convX - tx * planeHalfLen, y: convY - ty * planeHalfLen };
+
+    // Ray from camera to drone: P(s) = cam + s*(drone - cam)
+    // Intersection with image plane: dot(P(s) - conv, u) = 0
+    const rdx = droneX - camX, rdy = droneY - camY;
+    const denom = rdx * ux + rdy * uy;
+    let hitX = convX, hitY = convY, d = 0;
+    if (Math.abs(denom) > 1e-9) {
+        const s = ((convX - camX) * ux + (convY - camY) * uy) / denom;
+        hitX = camX + s * rdx;
+        hitY = camY + s * rdy;
+        // Signed distance along tangent from convergence center
+        d = (hitX - convX) * tx + (hitY - convY) * ty;
+    }
+    return { ip1, ip2, hit: { x: hitX, y: hitY }, d, tx, ty, ux, uy };
+}
+
+// ====== Drawing Helpers ======
+function drawGrid(ctx) {
+    ctx.strokeStyle = 'rgba(51,65,85,0.2)'; ctx.lineWidth = 0.5;
+    for (let i = 0; i <= 200; i += 20) { const cx = wx(i); ctx.beginPath(); ctx.moveTo(cx, 25); ctx.lineTo(cx, H-25); ctx.stroke(); }
+    for (let i = -80; i <= 80; i += 20) { const cy = wy(i); ctx.beginPath(); ctx.moveTo(45, cy); ctx.lineTo(W-45, cy); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(100,116,139,0.4)'; ctx.lineWidth = 1;
+    const ay = wy(0); ctx.beginPath(); ctx.moveTo(45, ay); ctx.lineTo(W-45, ay); ctx.stroke();
+}
+
+function drawCam(ctx, cx, cy, lbl) {
+    ctx.fillStyle = '#EF4444';
+    ctx.beginPath(); ctx.moveTo(cx+9,cy-7); ctx.lineTo(cx-9,cy-11); ctx.lineTo(cx-9,cy+11); ctx.lineTo(cx+9,cy+7); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#CBD5E1'; ctx.font = 'bold 9px monospace'; ctx.fillText(lbl, cx+13, cy+4);
+}
+
+function drawDot(ctx, cx, cy, r, color, glow) {
+    if (glow) { ctx.shadowColor = color; ctx.shadowBlur = 14; }
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+}
+
+function drawDrone(ctx, cx, cy, color, glow) {
+    if (glow) { ctx.shadowColor = color; ctx.shadowBlur = 18; }
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(cx, cy, 13, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx-7, cy); ctx.lineTo(cx+7, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy-7); ctx.lineTo(cx, cy+7); ctx.stroke();
+    ctx.shadowBlur = 0;
+}
+
+function drawDimLabel(ctx, x, y, text, color) {
+    ctx.font = 'bold 10px monospace';
+    const tw = ctx.measureText(text).width + 8;
+    ctx.fillStyle = 'rgba(15,23,42,0.85)'; ctx.fillRect(x - tw/2, y - 8, tw, 16);
+    ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(text, x, y+4); ctx.textAlign = 'start';
+}
+
+function drawDimLine(ctx, x1, y1, x2, y2, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.setLineDash([]);
+}
+
+function draw90marker(ctx, cx, cy, angle1, angle2, color) {
+    const r = 12;
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, cy, r, angle1, angle2); ctx.stroke();
+    const mid = (angle1 + angle2) / 2;
+    ctx.fillStyle = color; ctx.font = '8px monospace';
+    ctx.fillText('90°', cx + Math.cos(mid)*(r+10)-10, cy + Math.sin(mid)*(r+10)+3);
+}
+
+// ====== Canvas 1: Interactive Simulation ======
+function draw1() {
+    const ctx = x1;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0B1120'; ctx.fillRect(0, 0, W, H);
+    drawGrid(ctx);
+
+    const hb = C.baseline / 2;
+    const cam1 = { x: 0, y: hb }, cam2 = { x: 0, y: -hb }, conv = { x: C.convDist, y: 0 };
+    const c1 = { x: wx(0), y: wy(hb) }, c2 = { x: wx(0), y: wy(-hb) }, cc = { x: wx(C.convDist), y: wy(0) };
+    const dc = { x: wx(drone.x), y: wy(drone.y) };
+
+    // --- Image Planes (FOV lines) ---
+    const ipLen = 55; // half-length in world units
+    const ip1 = calcImagePlane(cam1.x, cam1.y, conv.x, conv.y, drone.x, drone.y, ipLen);
+    const ip2 = calcImagePlane(cam2.x, cam2.y, conv.x, conv.y, drone.x, drone.y, ipLen);
+
+    // Draw image plane lines (thick dark lines like CAD V-shape)
+    ctx.strokeStyle = '#CBD5E1'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(wx(ip1.ip1.x), wy(ip1.ip1.y)); ctx.lineTo(wx(ip1.ip2.x), wy(ip1.ip2.y)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(wx(ip2.ip1.x), wy(ip2.ip1.y)); ctx.lineTo(wx(ip2.ip2.x), wy(ip2.ip2.y)); ctx.stroke();
+
+    // 90° markers at convergence point for each image plane
+    const optAngle1 = Math.atan2(-(cam1.y - conv.y), -(cam1.x - conv.x));
+    const canvasAngle1 = Math.atan2(wy(conv.y) - wy(conv.y + 1), wx(conv.x) - wx(conv.x + 1));
+    // Use canvas-space angles for the 90° arcs
+    const ca1dir = Math.atan2(c1.y - cc.y, c1.x - cc.x);
+    const ca2dir = Math.atan2(c2.y - cc.y, c2.x - cc.x);
+    draw90marker(ctx, cc.x, cc.y - 6, ca1dir, ca1dir + Math.PI/2, '#94A3B8');
+    draw90marker(ctx, cc.x, cc.y + 6, ca2dir - Math.PI/2, ca2dir, '#94A3B8');
+
+    // --- Optical axes (dashed gray from camera to convergence and beyond) ---
+    ctx.strokeStyle = 'rgba(148,163,184,0.3)'; ctx.lineWidth = 1; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(cc.x - 60, cc.y + (cc.y - c1.y)/(cc.x - c1.x)*(-60)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(c2.x, c2.y); ctx.lineTo(cc.x - 60, cc.y + (cc.y - c2.y)/(cc.x - c2.x)*(-60)); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // --- FOV boundary cones (dashed blue, like CAD) ---
+    ctx.strokeStyle = 'rgba(59,130,246,0.2)'; ctx.lineWidth = 1; ctx.setLineDash([5,5]);
+    // Cam1 FOV edges through image plane endpoints
+    ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(wx(ip1.ip1.x), wy(ip1.ip1.y)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(wx(ip1.ip2.x), wy(ip1.ip2.y)); ctx.stroke();
+    // Cam2 FOV edges through image plane endpoints
+    ctx.beginPath(); ctx.moveTo(c2.x, c2.y); ctx.lineTo(wx(ip2.ip1.x), wy(ip2.ip1.y)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(c2.x, c2.y); ctx.lineTo(wx(ip2.ip2.x), wy(ip2.ip2.y)); ctx.stroke();
+
+    // Extend FOV edges beyond image planes (lighter dashed)
+    ctx.strokeStyle = 'rgba(59,130,246,0.1)';
+    for (const ip of [ip1, ip2]) {
+        for (const ep of [ip.ip1, ip.ip2]) {
+            const cam = (ip === ip1) ? cam1 : cam2;
+            const dirX = ep.x - cam.x, dirY = ep.y - cam.y;
+            const len = Math.hypot(dirX, dirY);
+            const ext = 120;
+            ctx.beginPath(); ctx.moveTo(wx(ep.x), wy(ep.y));
+            ctx.lineTo(wx(ep.x + dirX/len*ext), wy(ep.y + dirY/len*ext)); ctx.stroke();
+        }
+    }
+    ctx.setLineDash([]);
+
+    // --- Ray lines from cameras to drone (solid blue) ---
+    ctx.strokeStyle = '#3B82F6'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(dc.x, dc.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(c2.x, c2.y); ctx.lineTo(dc.x, dc.y); ctx.stroke();
+
+    // Extended rays beyond drone (faded)
+    ctx.strokeStyle = 'rgba(59,130,246,0.2)'; ctx.setLineDash([4,4]); ctx.lineWidth = 1;
+    for (const cam of [c1, c2]) {
+        const dx = dc.x - cam.x, dy = dc.y - cam.y, l = Math.hypot(dx, dy);
+        ctx.beginPath(); ctx.moveTo(dc.x, dc.y); ctx.lineTo(dc.x + dx/l*50, dc.y + dy/l*50); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // --- Intersection dots on image planes (d1, d2 hit points) ---
+    const hit1c = { x: wx(ip1.hit.x), y: wy(ip1.hit.y) };
+    const hit2c = { x: wx(ip2.hit.x), y: wy(ip2.hit.y) };
+    drawDot(ctx, hit1c.x, hit1c.y, 5, '#F59E0B', true);
+    drawDot(ctx, hit2c.x, hit2c.y, 5, '#F59E0B', true);
+
+    // --- Dimension lines: d1 from convergence center to hit point ---
+    const fwd = fwdCalc(drone.x, drone.y);
+    drawDimLine(ctx, cc.x, cc.y, hit1c.x, hit1c.y, '#F59E0B');
+    drawDimLabel(ctx, (cc.x + hit1c.x)/2 - 40, (cc.y + hit1c.y)/2, `d1=${fwd.d1.toFixed(2)}`, '#F59E0B');
+    drawDimLine(ctx, cc.x, cc.y, hit2c.x, hit2c.y, '#F59E0B');
+    drawDimLabel(ctx, (cc.x + hit2c.x)/2 - 40, (cc.y + hit2c.y)/2, `d2=${fwd.d2.toFixed(2)}`, '#F59E0B');
+
+    // --- Baseline dimension ---
+    drawDimLine(ctx, c1.x + 22, c1.y, c2.x + 22, c2.y, '#64748B');
+    drawDimLabel(ctx, c1.x + 40, (c1.y + c2.y)/2, `B=${C.baseline}m`, '#94A3B8');
+
+    // --- Cameras ---
+    drawCam(ctx, c1.x, c1.y, 'Cam1');
+    drawCam(ctx, c2.x, c2.y, 'Cam2');
+
+    // --- Convergence point ---
+    drawDot(ctx, cc.x, cc.y, 4, '#EF4444', false);
+    ctx.fillStyle = '#64748B'; ctx.font = '8px monospace'; ctx.fillText(`Conv ${C.convDist}m`, cc.x-22, cc.y+16);
+
+    // --- Drone ---
+    drawDrone(ctx, dc.x, dc.y, '#3B82F6', true);
+    drawDimLabel(ctx, dc.x, dc.y - 22, `(${drone.x.toFixed(1)}, ${drone.y.toFixed(1)})`, '#93C5FD');
+
+    // Title
+    ctx.fillStyle = '#3B82F6'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('Interactive — คลิกลากจุดโดรนสีฟ้า', 50, 22);
+}
+
+// ====== Canvas 2: Formula Proof ======
+function draw2(p) {
+    const ctx = x2;
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#0B1120'; ctx.fillRect(0, 0, W, H);
+    drawGrid(ctx);
+    if (!p) return;
+
+    const hb = C.baseline / 2;
+    const cam1 = { x: 0, y: hb }, cam2 = { x: 0, y: -hb }, conv = { x: C.convDist, y: 0 };
+    const c1 = { x: wx(0), y: wy(hb) }, c2 = { x: wx(0), y: wy(-hb) }, cc = { x: wx(C.convDist), y: wy(0) };
+    const pc = { x: wx(p.x), y: wy(p.y) };
+
+    // --- Image Planes ---
+    const ipLen = 55;
+    const ip1 = calcImagePlane(cam1.x, cam1.y, conv.x, conv.y, p.x, p.y, ipLen);
+    const ip2 = calcImagePlane(cam2.x, cam2.y, conv.x, conv.y, p.x, p.y, ipLen);
+
+    ctx.strokeStyle = '#CBD5E1'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(wx(ip1.ip1.x), wy(ip1.ip1.y)); ctx.lineTo(wx(ip1.ip2.x), wy(ip1.ip2.y)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(wx(ip2.ip1.x), wy(ip2.ip1.y)); ctx.lineTo(wx(ip2.ip2.x), wy(ip2.ip2.y)); ctx.stroke();
+
+    // 90° markers
+    const ca1d = Math.atan2(c1.y - cc.y, c1.x - cc.x);
+    const ca2d = Math.atan2(c2.y - cc.y, c2.x - cc.x);
+    draw90marker(ctx, cc.x, cc.y - 6, ca1d, ca1d + Math.PI/2, '#6EE7B7');
+    draw90marker(ctx, cc.x, cc.y + 6, ca2d - Math.PI/2, ca2d, '#6EE7B7');
+
+    // Optical axes dashed
+    ctx.strokeStyle = 'rgba(148,163,184,0.25)'; ctx.lineWidth = 1; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(cc.x - 50, cc.y + (cc.y-c1.y)/(cc.x-c1.x)*(-50)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(c2.x, c2.y); ctx.lineTo(cc.x - 50, cc.y + (cc.y-c2.y)/(cc.x-c2.x)*(-50)); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // FOV boundaries
+    ctx.strokeStyle = 'rgba(34,197,94,0.15)'; ctx.lineWidth = 1; ctx.setLineDash([5,5]);
+    for (const ip of [ip1, ip2]) {
+        const cam = (ip === ip1) ? c1 : c2;
+        ctx.beginPath(); ctx.moveTo(cam.x, cam.y); ctx.lineTo(wx(ip.ip1.x), wy(ip.ip1.y)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cam.x, cam.y); ctx.lineTo(wx(ip.ip2.x), wy(ip.ip2.y)); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Laser rays (solid green)
+    ctx.strokeStyle = '#22C55E'; ctx.lineWidth = 2.5; ctx.shadowColor = '#22C55E'; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(pc.x, pc.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(c2.x, c2.y); ctx.lineTo(pc.x, pc.y); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Hit points on image planes
+    const hit1c = { x: wx(ip1.hit.x), y: wy(ip1.hit.y) };
+    const hit2c = { x: wx(ip2.hit.x), y: wy(ip2.hit.y) };
+    drawDot(ctx, hit1c.x, hit1c.y, 5, '#F59E0B', true);
+    drawDot(ctx, hit2c.x, hit2c.y, 5, '#F59E0B', true);
+
+    // Angle arcs at cameras
+    const arcR = 30;
+    ctx.strokeStyle = '#06B6D4'; ctx.lineWidth = 1.5;
+    const ba1 = Math.atan2(cc.y - c1.y, cc.x - c1.x), ra1 = Math.atan2(pc.y - c1.y, pc.x - c1.x);
+    ctx.beginPath(); ctx.arc(c1.x, c1.y, arcR, Math.min(ba1,ra1), Math.max(ba1,ra1)); ctx.stroke();
+    const mid1 = (ba1+ra1)/2;
+    ctx.fillStyle = '#06B6D4'; ctx.font = '9px monospace';
+    ctx.fillText(`β1=${p.b1.toFixed(1)}°`, c1.x+Math.cos(mid1)*(arcR+12)-18, c1.y+Math.sin(mid1)*(arcR+12)+3);
+    const ba2 = Math.atan2(cc.y - c2.y, cc.x - c2.x), ra2 = Math.atan2(pc.y - c2.y, pc.x - c2.x);
+    ctx.beginPath(); ctx.arc(c2.x, c2.y, arcR, Math.min(ba2,ra2), Math.max(ba2,ra2)); ctx.stroke();
+    const mid2 = (ba2+ra2)/2;
+    ctx.fillText(`β2=${p.b2.toFixed(1)}°`, c2.x+Math.cos(mid2)*(arcR+12)-18, c2.y+Math.sin(mid2)*(arcR+12)+3);
+
+    // Baseline
+    drawDimLine(ctx, c1.x+22, c1.y, c2.x+22, c2.y, '#64748B');
+    drawDimLabel(ctx, c1.x+40, (c1.y+c2.y)/2, `B=${C.baseline}m`, '#94A3B8');
+
+    // Cameras
+    drawCam(ctx, c1.x, c1.y, 'Cam1'); drawCam(ctx, c2.x, c2.y, 'Cam2');
+    drawDot(ctx, cc.x, cc.y, 3, '#EF4444', false);
+
+    // Calculated drone (green)
+    drawDrone(ctx, pc.x, pc.y, '#22C55E', true);
+    drawDimLabel(ctx, pc.x, pc.y - 22, `Proof (${p.x.toFixed(1)}, ${p.y.toFixed(1)})`, '#86EFAC');
+
+    // Ghost of original drone (faded blue ring)
+    const ox = wx(drone.x), oy = wy(drone.y);
+    ctx.strokeStyle = 'rgba(59,130,246,0.25)'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.arc(ox, oy, 15, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+
+    ctx.fillStyle = '#22C55E'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('Proof — ลำแสงเลเซอร์ตรีโกณมิติ', 50, 22);
+}
+
+// ====== Update Loop ======
+function update() {
+    const fwd = fwdCalc(drone.x, drone.y);
+    const rev = revCalc(fwd.d1, fwd.d2);
+    document.getElementById('oPos').innerText = `(${drone.x.toFixed(2)}, ${drone.y.toFixed(2)})`;
+    document.getElementById('oDist').innerText = Math.hypot(drone.x, drone.y).toFixed(2) + ' m';
+    document.getElementById('oD1').innerText = fwd.d1.toFixed(2);
+    document.getElementById('oD2').innerText = fwd.d2.toFixed(2);
+    syncInputs();
+    draw1();
+    if (rev) {
+        const err = Math.hypot(rev.x - drone.x, rev.y - drone.y);
+        document.getElementById('oCalc').innerText = `(${rev.x.toFixed(2)}, ${rev.y.toFixed(2)})`;
+        document.getElementById('oB1').innerText = rev.b1.toFixed(2);
+        document.getElementById('oB2').innerText = rev.b2.toFixed(2);
+        document.getElementById('oDB').innerText = rev.db.toFixed(2);
+        document.getElementById('oErr').innerText = err.toFixed(6) + ' m';
+        const bd = document.getElementById('oProof');
+        if (err < 0.01) { bd.className = 'proof-badge proof-ok'; bd.innerText = '✓ EXACT MATCH — 100%!'; }
+        else { bd.className = 'proof-badge proof-err'; bd.innerText = `✗ Error ${err.toFixed(4)} m`; }
+        draw2(rev);
+    }
+}
+function onCfg() {
+    C.baseline = parseFloat(document.getElementById('sldrB').value);
+    C.convDist = parseFloat(document.getElementById('sldrR').value);
+    C.focal = parseFloat(document.getElementById('inpF').value);
+    document.getElementById('lblB').innerText = C.baseline.toFixed(1);
+    document.getElementById('lblR').innerText = C.convDist;
+    document.getElementById('lblF').innerText = C.focal;
+    update();
+}
+
+// ====== Manual Input Handlers ======
+function applyDroneXY() {
+    const nx = parseFloat(document.getElementById('inpDroneX').value);
+    const ny = parseFloat(document.getElementById('inpDroneY').value);
+    if (!isNaN(nx) && !isNaN(ny) && nx > 0) {
+        drone.x = nx; drone.y = ny;
+        update();
+    }
+}
+function applyD1D2() {
+    const nd1 = parseFloat(document.getElementById('inpD1').value);
+    const nd2 = parseFloat(document.getElementById('inpD2').value);
+    if (!isNaN(nd1) && !isNaN(nd2)) {
+        const rev = revCalc(nd1, nd2);
+        if (rev && rev.x > 0) {
+            drone.x = rev.x; drone.y = rev.y;
+            document.getElementById('inpDroneX').value = rev.x.toFixed(2);
+            document.getElementById('inpDroneY').value = rev.y.toFixed(2);
+            update();
+        }
+    }
+}
+// Sync input fields when drone moves via drag/click
+function syncInputs() {
+    document.getElementById('inpDroneX').value = drone.x.toFixed(2);
+    document.getElementById('inpDroneY').value = drone.y.toFixed(2);
+    const fwd = fwdCalc(drone.x, drone.y);
+    document.getElementById('inpD1').value = fwd.d1.toFixed(2);
+    document.getElementById('inpD2').value = fwd.d2.toFixed(2);
+}
+// Allow Enter key to apply values
+document.getElementById('inpDroneX').addEventListener('keydown', (e) => { if(e.key==='Enter') applyDroneXY(); });
+document.getElementById('inpDroneY').addEventListener('keydown', (e) => { if(e.key==='Enter') applyDroneXY(); });
+document.getElementById('inpD1').addEventListener('keydown', (e) => { if(e.key==='Enter') applyD1D2(); });
+document.getElementById('inpD2').addEventListener('keydown', (e) => { if(e.key==='Enter') applyD1D2(); });
+
+// ====== Mouse Interaction ======
+cv1.addEventListener('mousedown', (e) => {
+    const r = cv1.getBoundingClientRect(), s = W / r.width;
+    const mx = (e.clientX - r.left)*s, my = (e.clientY - r.top)*s;
+    if (Math.hypot(mx - wx(drone.x), my - wy(drone.y)) < 25) dragging = true;
+});
+cv1.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const r = cv1.getBoundingClientRect(), s = W / r.width;
+    drone.x = Math.max(3, rx((e.clientX - r.left)*s));
+    drone.y = ry((e.clientY - r.top)*s);
+    update();
+});
+window.addEventListener('mouseup', () => dragging = false);
+cv1.addEventListener('click', (e) => {
+    if (dragging) return;
+    const r = cv1.getBoundingClientRect(), s = W / r.width;
+    drone.x = Math.max(3, rx((e.clientX - r.left)*s));
+    drone.y = ry((e.clientY - r.top)*s);
+    update();
+});
+update();
+</script>

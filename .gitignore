@@ -1,0 +1,11 @@
+## Ignore Visual Studio & .NET temporary files
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+
+## Ignore OS generated files
+[Th]umbs.db
+[Dd]esktop.ini
