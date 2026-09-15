@@ -301,6 +301,7 @@
     .label3d.dist2 { color: #22D3EE; background: rgba(34,211,238,0.12); border: 1px solid rgba(34,211,238,0.2); font-size: 10px; }
     .label3d.conv-dist { color: #94A3B8; background: rgba(148,163,184,0.1); border: 1px solid rgba(148,163,184,0.15); font-size: 10px; }
     .label3d.alt { color: #38BDF8; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.15); font-size: 10px; }
+    .label3d.baseline { color: #38BDF8; background: rgba(15,23,42,0.85); border: 1px solid rgba(56,189,248,0.4); font-size: 10px; }
     .label3d.fov1-dot { color: #F87171; background: rgba(15,23,42,0.9); border: 1px solid #F87171; font-size: 11px; box-shadow: 0 0 8px rgba(248,113,113,0.4); }
     .label3d.fov2-dot { color: #FB923C; background: rgba(15,23,42,0.9); border: 1px solid #FB923C; font-size: 11px; box-shadow: 0 0 8px rgba(251,146,60,0.4); }
     .label3d.screen-tag1 { color: #F87171; background: rgba(15,23,42,0.85); border: 1px solid rgba(248,113,113,0.4); font-size: 9px; opacity: 0.9; }
@@ -345,6 +346,29 @@ scene.add(gridMajor); scene.add(gridMinor);
 // 3D Axis Helper
 const axes = new THREE.AxesHelper(40);
 scene.add(axes);
+
+// Symmetric Baseline Axis (Negative Z-axis towards Cam 2, matching blue axis)
+const negZMat = new THREE.LineBasicMaterial({ color: 0x0000ff });
+const negZGeo = new THREE.BufferGeometry();
+const negZLine = new THREE.Line(negZGeo, negZMat);
+scene.add(negZLine);
+
+// Positive Z Extension (if baseline exceeds 40m, ensures symmetry)
+const posZExtGeo = new THREE.BufferGeometry();
+const posZExtLine = new THREE.Line(posZExtGeo, negZMat);
+scene.add(posZExtLine);
+
+// Dedicated Baseline Connection Line (between Cam 2 and Cam 1)
+const baselineMat = new THREE.LineBasicMaterial({ color: 0x38BDF8, linewidth: 2 });
+const baselineGeo = new THREE.BufferGeometry();
+const baselineLine = new THREE.Line(baselineGeo, baselineMat);
+scene.add(baselineLine);
+
+// Ground Baseline Line (on floor Y=0 between (0, 0, -hb) and (0, 0, hb))
+const groundBaselineMat = new THREE.LineDashedMaterial({ color: 0x0284C7, dashSize: 1.5, gapSize: 1.0, transparent: true, opacity: 0.8 });
+const groundBaselineGeo = new THREE.BufferGeometry();
+const groundBaselineLine = new THREE.Line(groundBaselineGeo, groundBaselineMat);
+scene.add(groundBaselineLine);
 
 // Lighting
 scene.add(new THREE.AmbientLight(0xffffff, 0.65));
@@ -642,6 +666,7 @@ const lblCam1 = makeLabel('📷 Cam 1', 'cam1');
 const lblCam2 = makeLabel('📷 Cam 2', 'cam2');
 const lblDrone = makeLabel('🛸 Drone', 'drone');
 const lblConv = makeLabel('⊕ Convergence', 'conv');
+const lblBaseline = makeLabel('', 'baseline');
 const lblRay1Dist = makeLabel('', 'dist');    // Cam1 → Drone distance
 const lblRay2Dist = makeLabel('', 'dist2');   // Cam2 → Drone distance
 const lblConvDist1 = makeLabel('', 'conv-dist'); // Cam1 → Conv distance
@@ -709,6 +734,37 @@ function update() {
     pole2Geo.setFromPoints([new THREE.Vector3(0, 0, -hb), cam2Mesh.position]);
     pole1Line.computeLineDistances();
     pole2Line.computeLineDistances();
+
+    // Baseline Lines & Symmetric Blue Axis (towards Cam 2)
+    const axisLen = Math.max(40, hb + 15);
+    negZGeo.setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 0, -axisLen)
+    ]);
+    if (axisLen > 40) {
+        posZExtGeo.setFromPoints([
+            new THREE.Vector3(0, 0, 40),
+            new THREE.Vector3(0, 0, axisLen)
+        ]);
+        posZExtLine.visible = true;
+    } else {
+        posZExtLine.visible = false;
+    }
+
+    // Direct Baseline Line connecting Cam 2 and Cam 1
+    baselineGeo.setFromPoints([cam2Mesh.position, cam1Mesh.position]);
+
+    // Ground Baseline Line between (0, 0, -hb) and (0, 0, hb)
+    groundBaselineGeo.setFromPoints([
+        new THREE.Vector3(0, 0, -hb),
+        new THREE.Vector3(0, 0, hb)
+    ]);
+    groundBaselineLine.computeLineDistances();
+
+    // Baseline 3D Label
+    const midCamY = (C.cam1H + C.cam2H) / 2;
+    lblBaseline.position.set(0, midCamY + 2.5, 0);
+    lblBaseline.element.textContent = `📏 Baseline = ${C.baseline.toFixed(1)} m`;
 
     // Position Convergence Points for Cam 1 and Cam 2
     const conv1Pos = new THREE.Vector3(C.convDist, C.conv1H, 0);
