@@ -9,14 +9,14 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/DroneTrackerWeb.styles.css" asp-append-version="true" />
 </head>
-<body>
-    <div class="container-fluid p-0">
+<body class="d-flex flex-column min-vh-100">
+    <div class="container-fluid p-0 flex-grow-1">
         <main role="main">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="footer text-center py-3" style="background: #0F1729; border-top: 1px solid #334155; color: #64748B; font-size: 0.8rem;">
+    <footer class="footer text-center py-3 mt-auto" style="background: #0F1729; border-top: 1px solid #334155; color: #64748B; font-size: 0.8rem; position: relative;">
         <div class="container">
             &copy; 2026 - DroneTrackerWeb — Dual-Camera Drone Triangulation Proof System
         </div>
