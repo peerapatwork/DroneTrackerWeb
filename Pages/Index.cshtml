@@ -1,32 +1,34 @@
 @page
 @model IndexModel
 @{
-    ViewData["Title"] = "Dual-Camera Drone Triangulation";
+    ViewData["Title"] = "3D Dual-Camera Drone Triangulation";
 }
 
 <style>
     :root {
-        --bg-dark: #0F1729;
-        --bg-card: #1A2332;
-        --accent-blue: #3B82F6;
+        --bg-dark: #0A0F1D;
+        --bg-card: #151D2A;
+        --accent-blue: #38BDF8;
+        --accent-green: #4ADE80;
+        --accent-amber: #FBBF24;
+        --accent-red: #F87171;
         --accent-cyan: #06B6D4;
-        --accent-green: #22C55E;
-        --accent-red: #EF4444;
-        --accent-amber: #F59E0B;
         --text-primary: #F1F5F9;
         --text-secondary: #94A3B8;
         --text-dim: #64748B;
-        --border: #334155;
+        --border: #26334D;
     }
-    body { background: var(--bg-dark) !important; color: var(--text-primary); }
-    .page-wrapper { max-width: 1440px; margin: 0 auto; padding: 16px; }
+    body { background: var(--bg-dark) !important; color: var(--text-primary); font-family: 'Segoe UI', system-ui, sans-serif; }
+    .page-wrapper { max-width: 1500px; margin: 0 auto; padding: 16px; }
     .page-title {
         text-align: center; font-size: 1.6rem; font-weight: 800;
         background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        margin-bottom: 6px; letter-spacing: -0.5px;
+        margin-bottom: 4px; letter-spacing: -0.5px;
     }
     .page-subtitle { text-align: center; color: var(--text-dim); font-size: 0.82rem; margin-bottom: 16px; }
+
+    /* Config Panel */
     .ctrl-panel {
         background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
         padding: 14px 20px; margin-bottom: 14px; display: flex; gap: 24px; flex-wrap: wrap; align-items: center;
@@ -39,18 +41,72 @@
         background: var(--bg-dark); color: var(--accent-cyan); border: 1px solid var(--border);
         border-radius: 6px; padding: 4px 8px; width: 100%; font-weight: 700; font-size: 0.9rem;
     }
-    .canvas-row { display: flex; gap: 14px; flex-wrap: wrap; }
-    .canvas-card {
-        flex: 1; min-width: 300px; background: var(--bg-card); border: 1px solid var(--border);
-        border-radius: 12px; overflow: hidden;
+
+    /* Main Layout — Viewport + Side Panel */
+    .main-row { display: flex; gap: 14px; flex-wrap: wrap; }
+
+    /* 3D Viewport Card */
+    .viewport-card {
+        flex: 3; min-width: 500px; background: var(--bg-card); border: 1px solid var(--border);
+        border-radius: 12px; overflow: hidden; position: relative;
     }
-    .card-hdr { padding: 10px 16px; font-weight: 700; font-size: 0.85rem; }
-    .card-hdr.blue { background: linear-gradient(135deg, #1E3A8A, #1D4ED8); color: white; }
-    .card-hdr.green { background: linear-gradient(135deg, #065F46, #059669); color: white; }
-    .canvas-wrap { padding: 8px; text-align: center; }
-    .canvas-wrap canvas { width: 100%; max-width: 680px; border-radius: 8px; cursor: crosshair; border: 1px solid var(--border); }
+    .card-hdr {
+        padding: 10px 16px; font-weight: 700; font-size: 0.85rem;
+        background: linear-gradient(135deg, #1E3A8A, #1D4ED8); color: white;
+    }
+    #threeCanvasContainer { width: 100%; height: 560px; position: relative; cursor: crosshair; }
+
+    /* View Preset Buttons inside Viewport */
+    .view-bar {
+        position: absolute; top: 12px; left: 12px; z-index: 10;
+        display: flex; gap: 6px;
+    }
+    .view-btn {
+        padding: 5px 10px; border: 1px solid rgba(255,255,255,0.15); background: rgba(15,23,42,0.8);
+        color: #CBD5E1; border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-weight: 700;
+        transition: all 0.2s; backdrop-filter: blur(4px);
+    }
+    .view-btn:hover, .view-btn.active { background: var(--accent-blue); color: #0F172A; border-color: var(--accent-blue); }
+
+    /* Side Panel */
+    .side-panel {
+        flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 14px;
+    }
+    .side-card {
+        background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    }
+    .side-hdr {
+        padding: 10px 16px; font-weight: 700; font-size: 0.85rem;
+    }
+    .side-hdr.green { background: linear-gradient(135deg, #065F46, #059669); color: white; }
+    .side-hdr.amber { background: linear-gradient(135deg, #78350F, #D97706); color: white; }
+
+    /* Input Rows */
+    .input-row {
+        padding: 10px 16px; display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;
+        border-bottom: 1px solid var(--border);
+    }
+    .input-cell { flex: 1; min-width: 60px; }
+    .input-cell label { display: block; color: var(--text-dim); font-size: 0.68rem; font-weight: 600; margin-bottom: 3px; }
+    .input-cell input[type=number] {
+        background: var(--bg-dark); border: 1px solid var(--border); border-radius: 6px;
+        padding: 5px 8px; width: 100%; font-weight: 700; font-size: 0.85rem;
+    }
+    .inp-blue { color: var(--accent-blue); }
+    .inp-green { color: var(--accent-green); }
+    .inp-amber { color: var(--accent-amber); }
+    .btn-apply {
+        padding: 6px 14px; border: none; border-radius: 6px; font-weight: 700;
+        font-size: 0.78rem; cursor: pointer; transition: all 0.2s; align-self: flex-end;
+    }
+    .btn-apply.blue { background: var(--accent-blue); color: #0F172A; }
+    .btn-apply.blue:hover { background: #0284C7; box-shadow: 0 0 12px rgba(56,189,248,0.4); }
+    .btn-apply.amber { background: var(--accent-amber); color: #0F172A; }
+    .btn-apply.amber:hover { background: #D97706; box-shadow: 0 0 12px rgba(251,191,36,0.4); }
+
+    /* Info Rows */
     .info-row {
-        padding: 6px 16px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 16px;
+        padding: 8px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px;
         font-size: 0.78rem; color: var(--text-secondary);
     }
     .info-row b { color: var(--text-primary); }
@@ -58,485 +114,979 @@
     .val-green { color: var(--accent-green) !important; font-weight: 800; }
     .val-cyan { color: var(--accent-cyan) !important; font-weight: 800; }
     .val-amber { color: var(--accent-amber) !important; font-weight: 800; }
+
+    /* Proof Badge */
     .proof-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-weight: 800; font-size: 0.75rem; }
-    .proof-ok { background: rgba(34,197,94,0.15); color: var(--accent-green); border: 1px solid rgba(34,197,94,0.3); }
-    .proof-err { background: rgba(239,68,68,0.15); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.3); }
-    .input-row {
-        padding: 8px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-        border-top: 1px solid var(--border);
-    }
-    .input-row label { color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
-    .input-row input[type=number] {
-        background: var(--bg-dark); border: 1px solid var(--border); border-radius: 6px;
-        padding: 5px 8px; width: 90px; font-weight: 700; font-size: 0.85rem;
-    }
-    .input-row .inp-blue { color: var(--accent-blue); }
-    .input-row .inp-green { color: var(--accent-green); }
-    .btn-apply {
-        padding: 5px 14px; border: none; border-radius: 6px; font-weight: 700;
-        font-size: 0.78rem; cursor: pointer; transition: all 0.2s;
-    }
-    .btn-apply.blue { background: var(--accent-blue); color: white; }
-    .btn-apply.blue:hover { background: #2563EB; box-shadow: 0 0 12px rgba(59,130,246,0.4); }
-    .btn-apply.green { background: var(--accent-green); color: #0F172A; }
-    .btn-apply.green:hover { background: #16A34A; box-shadow: 0 0 12px rgba(34,197,94,0.4); }
+    .proof-ok { background: rgba(74,222,128,0.15); color: var(--accent-green); border: 1px solid rgba(74,222,128,0.3); }
+    .proof-err { background: rgba(248,113,113,0.15); color: var(--accent-red); border: 1px solid rgba(248,113,113,0.3); }
 </style>
 
 <div class="page-wrapper">
-    <div class="page-title">🚁 Dual-Camera Drone Triangulation Proof System</div>
-    <div class="page-subtitle">คลิกลากจุดโดรนสีฟ้าในภาพซ้าย — สังเกตจุดตกบนเส้น Image Plane (FOV) ว่าจะเปลี่ยนตามตำแหน่งโดรน</div>
+    <div class="page-title">🧊 3D Dual-Camera Drone Triangulation Proof System</div>
+    <div class="page-subtitle">คลิกลากจุดโดรนสีฟ้าในพื้นที่ 3D • หมุนมุมมองด้วยเมาส์ • กดปุ่ม View เพื่อสลับมุมมอง CAD</div>
 
+    <!-- Config Panel -->
     <div class="ctrl-panel">
-        <div class="ctrl-group">
-            <label>📏 Baseline (B) = <span class="ctrl-val" id="lblB">20.0</span> m</label>
-            <input type="range" id="sldrB" min="5" max="60" step="0.5" value="20" oninput="onCfg()">
+        <!-- Row 1: Optics & Baseline -->
+        <div style="display: flex; gap: 16px; align-items: center; width: 100%; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+            <div class="ctrl-group" style="min-width: 150px;">
+                <label>📷 Camera / Lens</label>
+                <select id="selLens" class="ctrl-select" onchange="onLensChange()" style="background:var(--bg-dark); color:var(--accent-cyan); border:1px solid var(--border); border-radius:6px; padding:5px 8px; width:100%; font-weight:700; font-size:0.82rem; margin-top:4px;">
+                    <option value="elp12" selected>ELP 12.0 mm (720p 60fps • 2860 px)</option>
+                    <option value="elp28">ELP 2.8 mm Wide (720p • 667 px)</option>
+                    <option value="elp50">ELP 50.0 mm Tele (720p • 11918 px)</option>
+                    <option value="demo">CAD Demo Scale (100.5 unit)</option>
+                    <option value="custom">Custom mm value...</option>
+                </select>
+            </div>
+            <div class="ctrl-group">
+                <label>📏 Baseline (B) = <span class="ctrl-val" id="lblB">20.0</span> m</label>
+                <input type="range" id="sldrB" min="5" max="60" step="0.5" value="20" oninput="onCfg()">
+            </div>
+            <div class="ctrl-group">
+                <label>🎯 Convergence (R) = <span class="ctrl-val" id="lblR">100</span> m</label>
+                <input type="range" id="sldrR" min="30" max="250" step="1" value="100" oninput="onCfg()">
+            </div>
+            <div class="ctrl-group" style="min-width: 160px;">
+                <label>🔭 Focal Length (f) = <span class="ctrl-val" id="lblF">12.0 mm</span> <span id="lblFPx" style="font-size:0.75rem; color:var(--text-dim);">(≈ 2860 px / 720p)</span></label>
+                <input type="number" id="inpF" value="12.0" step="0.5" onchange="onCustomFmm()">
+            </div>
         </div>
-        <div class="ctrl-group">
-            <label>🎯 Convergence (R) = <span class="ctrl-val" id="lblR">100</span> m</label>
-            <input type="range" id="sldrR" min="30" max="250" step="1" value="100" oninput="onCfg()">
-        </div>
-        <div class="ctrl-group">
-            <label>🔭 Focal Length (f) = <span class="ctrl-val" id="lblF">100.5</span></label>
-            <input type="number" id="inpF" value="100.5" step="0.1" onchange="onCfg()">
+        <!-- Row 2: Camera Heights & Focus Heights -->
+        <div style="display: flex; gap: 16px; align-items: center; width: 100%; flex-wrap: wrap; padding-top: 4px;">
+            <div class="ctrl-group" style="flex: 1; min-width: 120px;">
+                <label style="color: #F87171;">📸 Cam 1 Height (H1)</label>
+                <div style="display:flex; align-items:center; gap:6px; margin-top:3px;">
+                    <input type="number" id="inpCam1H" value="0.0" step="0.5" oninput="onCfg()" style="background:var(--bg-dark); color:#F87171; border:1px solid rgba(248,113,113,0.4); border-radius:6px; padding:4px 8px; width:100%; font-weight:700; font-size:0.85rem;">
+                    <span style="font-size:0.75rem; color:var(--text-dim);">m</span>
+                </div>
+            </div>
+            <div class="ctrl-group" style="flex: 1; min-width: 120px;">
+                <label style="color: #FB923C;">📸 Cam 2 Height (H2)</label>
+                <div style="display:flex; align-items:center; gap:6px; margin-top:3px;">
+                    <input type="number" id="inpCam2H" value="0.0" step="0.5" oninput="onCfg()" style="background:var(--bg-dark); color:#FB923C; border:1px solid rgba(251,146,60,0.4); border-radius:6px; padding:4px 8px; width:100%; font-weight:700; font-size:0.85rem;">
+                    <span style="font-size:0.75rem; color:var(--text-dim);">m</span>
+                </div>
+            </div>
+            <div class="ctrl-group" style="flex: 1; min-width: 130px;">
+                <label style="color: #4ADE80;">🎯 Focus Height Cam 1</label>
+                <div style="display:flex; align-items:center; gap:6px; margin-top:3px;">
+                    <input type="number" id="inpConv1H" value="0.0" step="0.5" oninput="onCfg()" style="background:var(--bg-dark); color:#4ADE80; border:1px solid rgba(74,222,128,0.4); border-radius:6px; padding:4px 8px; width:100%; font-weight:700; font-size:0.85rem;">
+                    <span style="font-size:0.75rem; color:var(--text-dim);">m</span>
+                </div>
+            </div>
+            <div class="ctrl-group" style="flex: 1; min-width: 130px;">
+                <label style="color: #22D3EE;">🎯 Focus Height Cam 2</label>
+                <div style="display:flex; align-items:center; gap:6px; margin-top:3px;">
+                    <input type="number" id="inpConv2H" value="0.0" step="0.5" oninput="onCfg()" style="background:var(--bg-dark); color:#22D3EE; border:1px solid rgba(34,211,238,0.4); border-radius:6px; padding:4px 8px; width:100%; font-weight:700; font-size:0.85rem;">
+                    <span style="font-size:0.75rem; color:var(--text-dim);">m</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="canvas-row">
-        <div class="canvas-card">
-            <div class="card-hdr blue">🎯 ภาพที่ 1 — จำลองตำแหน่งโดรน (คลิกลากจุดฟ้าได้)</div>
-            <div class="canvas-wrap"><canvas id="cv1" width="680" height="440"></canvas></div>
-            <div class="input-row">
-                <label>📍 กำหนดพิกัดโดรน:</label>
-                <label>X</label><input type="number" id="inpDroneX" class="inp-blue" value="80" step="1">
-                <label>Y</label><input type="number" id="inpDroneY" class="inp-blue" value="15" step="1">
-                <button class="btn-apply blue" onclick="applyDroneXY()">✓ Apply</button>
+    <!-- Main Row: Viewport + Side Panel -->
+    <div class="main-row">
+
+        <!-- 3D Viewport -->
+        <div class="viewport-card">
+            <div class="card-hdr">🧊 SolidWorks 3D Viewport — คลิกซ้ายลากบนพื้น • คลิกขวาลากขึ้น-ลง</div>
+            <div id="threeCanvasContainer">
+                <div class="view-bar">
+                    <button class="view-btn active" id="btnTop" onclick="setView('top')">Top View</button>
+                    <button class="view-btn" id="btnSide" onclick="setView('side')">Side View</button>
+                    <button class="view-btn" id="btnIso" onclick="setView('iso')">Isometric</button>
+                    <span style="border-left: 1px solid rgba(255,255,255,0.2); margin: 0 4px; height: 18px; align-self: center;"></span>
+                    <button class="view-btn active" id="btnToggleLabels" onclick="toggleLabels()">🏷️ 3D Labels: ON</button>
+                    <button class="view-btn active" id="btnToggleScreens" onclick="toggleScreens()">📺 FOV Screens: ON</button>
+                    <button class="view-btn active" id="btnToggleRays" onclick="toggleRays()">⚡ Laser Rays: ON</button>
+                </div>
             </div>
-            <div class="info-row">
-                <div><b>พิกัดโดรน:</b> <span class="val-blue" id="oPos">-</span></div>
-                <div><b>ระยะจากกล้อง:</b> <span class="val-cyan" id="oDist">-</span></div>
-                <div><b>d1 (กล้องบน):</b> <span class="val-amber" id="oD1">-</span></div>
-                <div><b>d2 (กล้องล่าง):</b> <span class="val-amber" id="oD2">-</span></div>
+            <!-- Viewport Info Row -->
+            <div class="info-row" style="border-top: 1px solid var(--border);">
+                <div><b>พิกัดโดรน (X, Y, Z):</b> <span class="val-blue" id="oPos">-</span></div>
+                <div><b>Distance 3D:</b> <span class="val-cyan" id="oDist">-</span></div>
+                <div><b>d1y (กล้อง 1):</b> <span class="val-amber" id="oD1Z">-</span></div>
+                <div><b>d2y (กล้อง 2):</b> <span class="val-amber" id="oD2Z">-</span></div>
+                <div><b>dz (ความสูง):</b> <span class="val-amber" id="oDY">-</span></div>
+                <div><b>มุมมองปัจจุบัน:</b> <span class="val-cyan" id="oView">Top View</span></div>
             </div>
         </div>
-        <div class="canvas-card">
-            <div class="card-hdr green">📐 ภาพที่ 2 — พิสูจน์สูตรตรีโกณมิติย้อนกลับ</div>
-            <div class="canvas-wrap"><canvas id="cv2" width="680" height="440"></canvas></div>
-            <div class="input-row">
-                <label>📐 กำหนดค่าภาพ:</label>
-                <label>d1</label><input type="number" id="inpD1" class="inp-green" value="0" step="0.1">
-                <label>d2</label><input type="number" id="inpD2" class="inp-green" value="0" step="0.1">
-                <button class="btn-apply green" onclick="applyD1D2()">✓ Apply</button>
+
+        <!-- Side Panel -->
+        <div class="side-panel">
+
+            <!-- Input: Drone Position (X, Y, Z) -->
+            <div class="side-card">
+                <div class="side-hdr green">📍 กำหนดพิกัดโดรน 3D (X, Y, Z)</div>
+                <div class="input-row">
+                    <div class="input-cell">
+                        <label>X (พุ่งหน้า)</label>
+                        <input type="number" id="inpX" class="inp-blue" value="80" step="1">
+                    </div>
+                    <div class="input-cell">
+                        <label>Y (ซ้าย-ขวา)</label>
+                        <input type="number" id="inpY" class="inp-blue" value="10" step="1">
+                    </div>
+                    <div class="input-cell">
+                        <label>Z (ความสูง)</label>
+                        <input type="number" id="inpZ" class="inp-blue" value="15" step="1">
+                    </div>
+                    <button class="btn-apply blue" onclick="applyXYZ()">✓ Apply</button>
+                </div>
             </div>
-            <div class="info-row">
-                <div><b>พิกัดถอดสูตร:</b> <span class="val-green" id="oCalc">-</span></div>
-                <div><b>สถานะ:</b> <span id="oProof" class="proof-badge proof-ok">-</span></div>
-                <div><b>β1 กล้องบน:</b> <span class="val-cyan" id="oB1">-</span>°</div>
-                <div><b>β2 กล้องล่าง:</b> <span class="val-cyan" id="oB2">-</span>°</div>
-                <div><b>Δβ มุมตัด:</b> <span class="val-amber" id="oDB">-</span>°</div>
-                <div><b>Error:</b> <span class="val-green" id="oErr">-</span></div>
+
+            <!-- Input: Image Offsets (d1y, d2y, dz1, dz2) -->
+            <div class="side-card">
+                <div class="side-hdr amber">📐 กำหนดค่าเบี่ยงเบนภาพ <span id="hdrOffsetUnit" style="font-size:0.75rem; opacity:0.85;">(px)</span></div>
+                <div class="input-row">
+                    <div class="input-cell">
+                        <label>d1y (px)</label>
+                        <input type="number" id="inpD1Z" class="inp-amber" value="0" step="1">
+                    </div>
+                    <div class="input-cell">
+                        <label>d2y (px)</label>
+                        <input type="number" id="inpD2Z" class="inp-amber" value="0" step="1">
+                    </div>
+                    <div class="input-cell">
+                        <label>dz1 (กล้อง 1)</label>
+                        <input type="number" id="inpDY" class="inp-amber" value="0" step="1">
+                    </div>
+                    <div class="input-cell">
+                        <label>dz2 (กล้อง 2)</label>
+                        <input type="number" id="inpDY2" class="inp-amber" value="0" step="1">
+                    </div>
+                    <button class="btn-apply amber" onclick="applyReverse()">✓ Apply</button>
+                </div>
+            </div>
+
+            <!-- Proof Results -->
+            <div class="side-card">
+                <div class="side-hdr" style="background: linear-gradient(135deg, #1E3A5F, #0E7490); color: white;">
+                    📊 ผลการพิสูจน์สูตร 3D (Proof)
+                </div>
+                <div class="info-row">
+                    <div><b>พิกัดถอดสูตร:</b> <span class="val-green" id="oCalc">-</span></div>
+                    <div><b>สถานะ:</b> <span id="oProof" class="proof-badge proof-ok">-</span></div>
+                    <div><b>β1 กล้อง 1:</b> <span class="val-cyan" id="oB1">-</span>°</div>
+                    <div><b>β2 กล้อง 2:</b> <span class="val-cyan" id="oB2">-</span>°</div>
+                    <div><b>Δβ มุมตัด:</b> <span class="val-amber" id="oDB">-</span>°</div>
+                    <div><b>Error:</b> <span class="val-green" id="oErr">-</span></div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Three.js CDN, OrbitControls, CSS2DRenderer -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+
+<style>
+    /* 3D Label Styles */
+    .label3d {
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        font-size: 11px; font-weight: 700;
+        padding: 2px 7px; border-radius: 4px;
+        pointer-events: none; white-space: nowrap;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+    .label3d.cam1 { color: #F87171; background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3); }
+    .label3d.cam2 { color: #FB923C; background: rgba(251,146,60,0.15); border: 1px solid rgba(251,146,60,0.3); }
+    .label3d.drone { color: #38BDF8; background: rgba(56,189,248,0.15); border: 1px solid rgba(56,189,248,0.3); font-size: 12px; }
+    .label3d.conv { color: #EF4444; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); font-size: 10px; }
+    .label3d.dist { color: #4ADE80; background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.2); font-size: 10px; }
+    .label3d.dist2 { color: #22D3EE; background: rgba(34,211,238,0.12); border: 1px solid rgba(34,211,238,0.2); font-size: 10px; }
+    .label3d.conv-dist { color: #94A3B8; background: rgba(148,163,184,0.1); border: 1px solid rgba(148,163,184,0.15); font-size: 10px; }
+    .label3d.alt { color: #38BDF8; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.15); font-size: 10px; }
+    .label3d.fov1-dot { color: #F87171; background: rgba(15,23,42,0.9); border: 1px solid #F87171; font-size: 11px; box-shadow: 0 0 8px rgba(248,113,113,0.4); }
+    .label3d.fov2-dot { color: #FB923C; background: rgba(15,23,42,0.9); border: 1px solid #FB923C; font-size: 11px; box-shadow: 0 0 8px rgba(251,146,60,0.4); }
+    .label3d.screen-tag1 { color: #F87171; background: rgba(15,23,42,0.85); border: 1px solid rgba(248,113,113,0.4); font-size: 9px; opacity: 0.9; }
+    .label3d.screen-tag2 { color: #FB923C; background: rgba(15,23,42,0.85); border: 1px solid rgba(251,146,60,0.4); font-size: 9px; opacity: 0.9; }
+</style>
+
 <script>
 // ====== Config & State ======
-let C = { baseline: 20, convDist: 100, focal: 100.5 };
-let drone = { x: 80, y: 15 };
-let dragging = false;
-const W = 680, H = 440;
-const cv1 = document.getElementById('cv1'), x1 = cv1.getContext('2d');
-const cv2 = document.getElementById('cv2'), x2 = cv2.getContext('2d');
+let dronePos = new THREE.Vector3(80, 15, 10);
+let isDragging = false;
+let currentView = 'top';
 
-// ====== World ↔ Canvas ======
-const V = { x0: -50, x1: 230, y0: -90, y1: 90 };
-function wx(r) { return W - 50 - ((r - V.x0) / (V.x1 - V.x0)) * (W - 90); }
-function wy(r) { return H / 2 - (r / (V.y1 - V.y0)) * (H - 60); }
-function rx(c) { return V.x0 + ((W - 50 - c) / (W - 90)) * (V.x1 - V.x0); }
-function ry(c) { return (H / 2 - c) / (H - 60) * (V.y1 - V.y0); }
+// ====== Three.js Setup ======
+const container = document.getElementById('threeCanvasContainer');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0A0F1D);
+scene.fog = new THREE.FogExp2(0x0A0F1D, 0.003);
 
-// ====== Math ======
-function fwdCalc(tx, ty) {
-    const hb = C.baseline / 2;
-    const a1 = Math.atan2(ty - hb, tx), a2 = Math.atan2(ty + hb, tx);
-    const cv1a = Math.atan2(-hb, C.convDist), cv2a = Math.atan2(hb, C.convDist);
-    return { d1: Math.tan(a1 - cv1a) * C.focal, d2: Math.tan(a2 - cv2a) * C.focal };
+const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1200);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+container.appendChild(renderer.domElement);
+
+// CSS2D Label Renderer (overlays HTML labels on 3D scene)
+const labelRenderer = new THREE.CSS2DRenderer();
+labelRenderer.setSize(container.clientWidth, container.clientHeight);
+labelRenderer.domElement.style.position = 'absolute';
+labelRenderer.domElement.style.top = '0';
+labelRenderer.domElement.style.pointerEvents = 'none';
+container.appendChild(labelRenderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+
+// ====== CAD Scene Objects ======
+// Grid Floor (XZ Ground Plane)
+const gridMajor = new THREE.GridHelper(400, 20, 0x1E3A5F, 0x0F1D2E);
+const gridMinor = new THREE.GridHelper(400, 80, 0x162538, 0x0F1D2E);
+scene.add(gridMajor); scene.add(gridMinor);
+
+// 3D Axis Helper
+const axes = new THREE.AxesHelper(40);
+scene.add(axes);
+
+// Lighting
+scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+const dLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dLight.position.set(120, 200, 100);
+scene.add(dLight);
+const hLight = new THREE.HemisphereLight(0x38BDF8, 0x0A0F1D, 0.3);
+scene.add(hLight);
+
+// ====== Camera Meshes ======
+const camGeo = new THREE.BoxGeometry(5, 3, 3);
+const cam1Mat = new THREE.MeshStandardMaterial({ color: 0xF87171, metalness: 0.4, roughness: 0.3 });
+const cam2Mat = new THREE.MeshStandardMaterial({ color: 0xFB923C, metalness: 0.4, roughness: 0.3 });
+const cam1Mesh = new THREE.Mesh(camGeo, cam1Mat);
+const cam2Mesh = new THREE.Mesh(camGeo, cam2Mat);
+scene.add(cam1Mesh); scene.add(cam2Mesh);
+
+// Camera Labels (Small spheres at camera tips)
+const camTip1 = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 8), new THREE.MeshBasicMaterial({ color: 0xF87171 }));
+const camTip2 = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 8), new THREE.MeshBasicMaterial({ color: 0xFB923C }));
+scene.add(camTip1); scene.add(camTip2);
+
+// Camera Mounting Poles (dashed vertical lines to ground)
+const poleMat = new THREE.LineDashedMaterial({ color: 0x64748B, dashSize: 1.5, gapSize: 1.5, transparent: true, opacity: 0.6 });
+const pole1Geo = new THREE.BufferGeometry();
+const pole2Geo = new THREE.BufferGeometry();
+const pole1Line = new THREE.Line(pole1Geo, poleMat);
+const pole2Line = new THREE.Line(pole2Geo, poleMat);
+scene.add(pole1Line); scene.add(pole2Line);
+
+// Convergence Points for Cam 1 and Cam 2
+const conv1Mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(1.4, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xF87171, transparent: true, opacity: 0.7 })
+);
+const conv2Mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(1.4, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xFB923C, transparent: true, opacity: 0.7 })
+);
+scene.add(conv1Mesh); scene.add(conv2Mesh);
+
+// Convergence Line (dashed)
+const convLineMat = new THREE.LineDashedMaterial({ color: 0x475569, dashSize: 4, gapSize: 2 });
+const convLineGeo = new THREE.BufferGeometry();
+const convLine = new THREE.Line(convLineGeo, convLineMat);
+scene.add(convLine);
+
+// ====== Target Drone Mesh ======
+const droneMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(3.5, 32, 32),
+    new THREE.MeshStandardMaterial({ color: 0x38BDF8, emissive: 0x0369A1, emissiveIntensity: 0.4, roughness: 0.15, metalness: 0.3 })
+);
+scene.add(droneMesh);
+
+// Drone glow ring
+const ringGeo = new THREE.RingGeometry(5, 6.5, 32);
+const ringMat = new THREE.MeshBasicMaterial({ color: 0x38BDF8, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
+const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+ringMesh.rotation.x = -Math.PI / 2;
+scene.add(ringMesh);
+
+// Drone vertical dashed line (altitude indicator)
+const altLineMat = new THREE.LineDashedMaterial({ color: 0x38BDF8, dashSize: 2, gapSize: 1.5, transparent: true, opacity: 0.4 });
+const altLineGeo = new THREE.BufferGeometry();
+const altLine = new THREE.Line(altLineGeo, altLineMat);
+scene.add(altLine);
+
+// ====== Laser Rays ======
+const ray1Mat = new THREE.LineBasicMaterial({ color: 0x4ADE80 });
+const ray2Mat = new THREE.LineBasicMaterial({ color: 0x22D3EE });
+const ray1Geo = new THREE.BufferGeometry();
+const ray2Geo = new THREE.BufferGeometry();
+const ray1Line = new THREE.Line(ray1Geo, ray1Mat);
+const ray2Line = new THREE.Line(ray2Geo, ray2Mat);
+scene.add(ray1Line); scene.add(ray2Line);
+
+// ====== 3D FOV Frustum Pyramids & Lens Optics ======
+// ELP OV2710 sensor: 1/2.7" → 5.37 × 4.04 mm, 720p resolution: 1280 × 720 px
+const SENSOR_W_MM = 5.37;
+const SENSOR_H_MM = 4.04;
+const IMG_W_PX = 1280;
+const IMG_H_PX = 720;
+
+const LENS_PRESETS = {
+    elp12:  { f_mm: 12.0,  f_px: 2860.3, fovH: 25.18, fovV: 19.13, isDemo: false, label: 'ELP 12.0 mm (720p 60fps)' },
+    elp28:  { f_mm: 2.8,   f_px: 667.4,  fovH: 87.42, fovV: 71.61, isDemo: false, label: 'ELP 2.8 mm Wide (720p)' },
+    elp50:  { f_mm: 50.0,  f_px: 11918,  fovH: 6.15,  fovV: 4.62,  isDemo: false, label: 'ELP 50.0 mm Tele (720p)' },
+    demo:   { f_mm: 100.5, f_px: 100.5,  fovH: 25.18, fovV: 19.13, isDemo: true,  label: 'CAD Demo Scale' },
+    custom: { f_mm: 12.0,  f_px: 2860.3, fovH: 25.18, fovV: 19.13, isDemo: false, label: 'Custom mm...' }
+};
+let activeLensKey = 'elp12';
+let C = {
+    baseline: 20,
+    convDist: 100,
+    focal: 2860.3,
+    focal_mm: 12.0,
+    cam1H: 0.0,
+    cam2H: 0.0,
+    conv1H: 0.0,
+    conv2H: 0.0
+};
+
+function getFovAngles() {
+    const preset = LENS_PRESETS[activeLensKey] || LENS_PRESETS.elp12;
+    // FOV half-angles in radians
+    const hAngle = (preset.fovH * Math.PI / 180) / 2;
+    const vAngle = (preset.fovV * Math.PI / 180) / 2;
+    return { h: hAngle, v: vAngle };
 }
-function revCalc(d1, d2) {
+
+// ====== 3D FOV Convergence Screen Planes (Image Frames at R) ======
+// Displays the 2D viewing screen of each camera at the convergence point (R)
+function createFovScreen(colorHex) {
+    // 1. Translucent Plane Fill (Subtle glass screen)
+    const fillMat = new THREE.MeshBasicMaterial({
+        color: colorHex, transparent: true, opacity: 0.12,
+        side: THREE.DoubleSide, depthWrite: false
+    });
+    const fillGeo = new THREE.BufferGeometry();
+    const fillMesh = new THREE.Mesh(fillGeo, fillMat);
+    scene.add(fillMesh);
+
+    // 2. Screen Border Frame
+    const borderMat = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 2, transparent: true, opacity: 0.85 });
+    const borderGeo = new THREE.BufferGeometry();
+    const borderLine = new THREE.LineLoop(borderGeo, borderMat);
+    scene.add(borderLine);
+
+    // 3. Optical Center Crosshair (+ lines)
+    const crossMat = new THREE.LineDashedMaterial({ color: colorHex, dashSize: 2, gapSize: 2, transparent: true, opacity: 0.4 });
+    const crossGeo = new THREE.BufferGeometry();
+    const crossLine = new THREE.LineSegments(crossGeo, crossMat);
+    scene.add(crossLine);
+
+    // 4. Center Dot (Optical axis center at 0, 0)
+    const centerDot = new THREE.Mesh(
+        new THREE.SphereGeometry(1.0, 12, 12),
+        new THREE.MeshBasicMaterial({ color: 0xFFFFFF })
+    );
+    scene.add(centerDot);
+
+    // 5. Projected Target Dot on this Screen Plane
+    const targetDot = new THREE.Mesh(
+        new THREE.SphereGeometry(2.2, 16, 16),
+        new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.8, roughness: 0.2 })
+    );
+    scene.add(targetDot);
+
+    // 6. Dashed Offset Line (from optical center to target dot)
+    const offsetMat = new THREE.LineDashedMaterial({ color: colorHex, dashSize: 1.5, gapSize: 1.5, transparent: true, opacity: 0.8 });
+    const offsetGeo = new THREE.BufferGeometry();
+    const offsetLine = new THREE.Line(offsetGeo, offsetMat);
+    scene.add(offsetLine);
+
+    return { fillGeo, fillMesh, borderGeo, borderLine, crossGeo, crossLine, centerDot, targetDot, offsetGeo, offsetLine };
+}
+
+const screen1 = createFovScreen(0xF87171); // Cam 1 Red Screen
+const screen2 = createFovScreen(0xFB923C); // Cam 2 Orange Screen
+
+// ====== Faint 3D FOV Beam Frustums (From Camera to Screen) ======
+function createFaintFrustum(colorHex) {
+    const fillMat = new THREE.MeshBasicMaterial({
+        color: colorHex, transparent: true, opacity: 0.025,
+        side: THREE.DoubleSide, depthWrite: false
+    });
+    const fillGeo = new THREE.BufferGeometry();
+    const fillMesh = new THREE.Mesh(fillGeo, fillMat);
+    scene.add(fillMesh);
+
+    const edgeMat = new THREE.LineBasicMaterial({ color: colorHex, transparent: true, opacity: 0.12 });
+    const edgeGeo = new THREE.BufferGeometry();
+    const edgeLine = new THREE.LineSegments(edgeGeo, edgeMat);
+    scene.add(edgeLine);
+
+    return { fillGeo, fillMesh, edgeGeo, edgeLine };
+}
+
+const frustum1 = createFaintFrustum(0xF87171); // Cam 1 Faint Beam
+const frustum2 = createFaintFrustum(0xFB923C); // Cam 2 Faint Beam
+
+function updateFaintFrustum(frustum, apex, pTL, pTR, pBR, pBL) {
+    // Extend 2x farther than the focus point (2.0x distance)
+    const ext = 2.0;
+    const fTL = new THREE.Vector3().copy(apex).addScaledVector(new THREE.Vector3().subVectors(pTL, apex), ext);
+    const fTR = new THREE.Vector3().copy(apex).addScaledVector(new THREE.Vector3().subVectors(pTR, apex), ext);
+    const fBR = new THREE.Vector3().copy(apex).addScaledVector(new THREE.Vector3().subVectors(pBR, apex), ext);
+    const fBL = new THREE.Vector3().copy(apex).addScaledVector(new THREE.Vector3().subVectors(pBL, apex), ext);
+
+    // 4 triangular sides extending to 2x distance
+    const verts = new Float32Array([
+        apex.x, apex.y, apex.z,  fTL.x, fTL.y, fTL.z,  fTR.x, fTR.y, fTR.z,
+        apex.x, apex.y, apex.z,  fTR.x, fTR.y, fTR.z,  fBR.x, fBR.y, fBR.z,
+        apex.x, apex.y, apex.z,  fBR.x, fBR.y, fBR.z,  fBL.x, fBL.y, fBL.z,
+        apex.x, apex.y, apex.z,  fBL.x, fBL.y, fBL.z,  fTL.x, fTL.y, fTL.z
+    ]);
+    frustum.fillGeo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+    frustum.fillGeo.computeVertexNormals();
+
+    // 4 subtle side edge lines from camera to 2x distance + 4 far end boundary edges
+    const edgeVerts = new Float32Array([
+        // Side rays from apex to 2x distance
+        apex.x, apex.y, apex.z,  fTL.x, fTL.y, fTL.z,
+        apex.x, apex.y, apex.z,  fTR.x, fTR.y, fTR.z,
+        apex.x, apex.y, apex.z,  fBR.x, fBR.y, fBR.z,
+        apex.x, apex.y, apex.z,  fBL.x, fBL.y, fBL.z,
+        // Far end rectangular loop at 2x distance
+        fTL.x, fTL.y, fTL.z,     fTR.x, fTR.y, fTR.z,
+        fTR.x, fTR.y, fTR.z,     fBR.x, fBR.y, fBR.z,
+        fBR.x, fBR.y, fBR.z,     fBL.x, fBL.y, fBL.z,
+        fBL.x, fBL.y, fBL.z,     fTL.x, fTL.y, fTL.z
+    ]);
+    frustum.edgeGeo.setAttribute('position', new THREE.BufferAttribute(edgeVerts, 3));
+}
+
+function updateFovScreen(screen, camPos, targetPoint) {
+    // Normal vector pointing from camera to convergence target
+    const dir = new THREE.Vector3().subVectors(targetPoint, camPos);
+    const L = dir.length();
+    const N = dir.clone().normalize(); // Screen Normal
+
+    const V = new THREE.Vector3(0, 1, 0); // Up vector
+    const U = new THREE.Vector3().crossVectors(V, N).normalize(); // Horizontal vector along screen plane
+
+    // Screen dimensions based on FOV half-angles
+    const fovAngles = getFovAngles();
+    const halfW = L * Math.tan(fovAngles.h);
+    const halfH = L * Math.tan(fovAngles.v);
+
+    // 4 corners of the screen at targetPoint (Convergence point): TL, TR, BR, BL
+    const pTL = new THREE.Vector3().copy(targetPoint).addScaledVector(U, -halfW).addScaledVector(V, halfH);
+    const pTR = new THREE.Vector3().copy(targetPoint).addScaledVector(U, halfW).addScaledVector(V, halfH);
+    const pBR = new THREE.Vector3().copy(targetPoint).addScaledVector(U, halfW).addScaledVector(V, -halfH);
+    const pBL = new THREE.Vector3().copy(targetPoint).addScaledVector(U, -halfW).addScaledVector(V, -halfH);
+
+    // 1. Fill Mesh (2 triangles)
+    const fillVerts = new Float32Array([
+        pTL.x, pTL.y, pTL.z,  pTR.x, pTR.y, pTR.z,  pBR.x, pBR.y, pBR.z,
+        pTL.x, pTL.y, pTL.z,  pBR.x, pBR.y, pBR.z,  pBL.x, pBL.y, pBL.z
+    ]);
+    screen.fillGeo.setAttribute('position', new THREE.BufferAttribute(fillVerts, 3));
+    screen.fillGeo.computeVertexNormals();
+
+    // 2. Border Lines
+    const borderVerts = new Float32Array([
+        pTL.x, pTL.y, pTL.z,
+        pTR.x, pTR.y, pTR.z,
+        pBR.x, pBR.y, pBR.z,
+        pBL.x, pBL.y, pBL.z
+    ]);
+    screen.borderGeo.setAttribute('position', new THREE.BufferAttribute(borderVerts, 3));
+
+    // 3. Crosshair Lines
+    const crossVerts = new Float32Array([
+        targetPoint.x - U.x * halfW, targetPoint.y - U.y * halfW, targetPoint.z - U.z * halfW,
+        targetPoint.x + U.x * halfW, targetPoint.y + U.y * halfW, targetPoint.z + U.z * halfW,
+        targetPoint.x, targetPoint.y - halfH, targetPoint.z,
+        targetPoint.x, targetPoint.y + halfH, targetPoint.z
+    ]);
+    screen.crossGeo.setAttribute('position', new THREE.BufferAttribute(crossVerts, 3));
+    screen.crossLine.computeLineDistances();
+
+    // 4. Optical Center Dot
+    screen.centerDot.position.copy(targetPoint);
+
+    // 5. Projected Target Dot on this Screen Plane
+    // Ray from camPos through dronePos intersects screen plane at targetPoint
+    const rayDir = new THREE.Vector3().subVectors(dronePos, camPos);
+    const denom = rayDir.dot(N);
+    let projPoint = targetPoint.clone();
+    if (Math.abs(denom) > 1e-6) {
+        const t = L / denom;
+        projPoint = new THREE.Vector3().copy(camPos).addScaledVector(rayDir, t);
+    }
+    screen.targetDot.position.copy(projPoint);
+
+    // 6. Dashed Offset Line
+    screen.offsetGeo.setFromPoints([targetPoint, projPoint]);
+    screen.offsetLine.computeLineDistances();
+
+    return { projPoint, pTL, pTR, pBR, pBL };
+}
+
+// ====== CSS2D Labels ======
+function makeLabel(text, className) {
+    const div = document.createElement('div');
+    div.className = 'label3d ' + className;
+    div.textContent = text;
+    const lbl = new THREE.CSS2DObject(div);
+    scene.add(lbl);
+    return lbl;
+}
+
+const lblCam1 = makeLabel('📷 Cam 1', 'cam1');
+const lblCam2 = makeLabel('📷 Cam 2', 'cam2');
+const lblDrone = makeLabel('🛸 Drone', 'drone');
+const lblConv = makeLabel('⊕ Convergence', 'conv');
+const lblRay1Dist = makeLabel('', 'dist');    // Cam1 → Drone distance
+const lblRay2Dist = makeLabel('', 'dist2');   // Cam2 → Drone distance
+const lblConvDist1 = makeLabel('', 'conv-dist'); // Cam1 → Conv distance
+const lblConvDist2 = makeLabel('', 'conv-dist'); // Cam2 → Conv distance
+const lblAltitude = makeLabel('', 'alt');     // Altitude line
+const lblScreen1Tag = makeLabel('FOV Screen 1', 'screen-tag1');
+const lblScreen2Tag = makeLabel('FOV Screen 2', 'screen-tag2');
+const lblScreen1Dot = makeLabel('', 'fov1-dot');
+const lblScreen2Dot = makeLabel('', 'fov2-dot');
+
+// ====== 3D Triangulation Math (with Camera Heights & Focus Heights) ======
+function fwdCalc(x, y, z) {
+    const hb = C.baseline / 2;
+    // Horizontal (XZ ground in Three.js -> X, Y in UI)
+    const a1 = Math.atan2(z - hb, x), a2 = Math.atan2(z + hb, x);
+    const cv1 = Math.atan2(-hb, C.convDist), cv2 = Math.atan2(hb, C.convDist);
+    const d1z = Math.tan(a1 - cv1) * C.focal;
+    const d2z = Math.tan(a2 - cv2) * C.focal;
+
+    // Vertical (Y height in Three.js -> Z in UI)
+    const elevConv1 = Math.atan2(C.conv1H - C.cam1H, C.convDist);
+    const elevConv2 = Math.atan2(C.conv2H - C.cam2H, C.convDist);
+    const elevTgt1 = Math.atan2(y - C.cam1H, x);
+    const elevTgt2 = Math.atan2(y - C.cam2H, x);
+    const dy1 = Math.tan(elevTgt1 - elevConv1) * C.focal;
+    const dy2 = Math.tan(elevTgt2 - elevConv2) * C.focal;
+
+    return { d1z, d2z, dy1, dy2 };
+}
+
+function revCalc(d1z, d2z, dy1, dy2) {
     const hb = C.baseline / 2;
     const t1c = Math.atan2(-hb, C.convDist), t2c = Math.atan2(hb, C.convDist);
-    const b1 = t1c + Math.atan2(d1, C.focal), b2 = t2c + Math.atan2(d2, C.focal);
+    const b1 = t1c + Math.atan2(d1z, C.focal), b2 = t2c + Math.atan2(d2z, C.focal);
     const sd = Math.sin(b2 - b1);
     if (Math.abs(sd) < 1e-9) return null;
     const t1 = (C.baseline * Math.cos(b2)) / sd;
-    return { x: t1 * Math.cos(b1), y: hb + t1 * Math.sin(b1), b1: b1*180/Math.PI, b2: b2*180/Math.PI, db: (b2-b1)*180/Math.PI };
+    const cx = t1 * Math.cos(b1);
+    const cz = hb + t1 * Math.sin(b1); // lateral in Three.js (Y in UI)
+
+    // Vertical height reconstruction (Y in Three.js / Z in UI)
+    const elevConv1 = Math.atan2(C.conv1H - C.cam1H, C.convDist);
+    const elevTgt1 = elevConv1 + Math.atan2(dy1, C.focal);
+    const cy1 = C.cam1H + cx * Math.tan(elevTgt1);
+
+    return { x: cx, y: cy1, z: cz, b1, b2, db: b2 - b1 };
 }
 
-// ====== Image Plane Geometry ======
-// Calculates the image plane line endpoints and ray intersection point for a camera
-function calcImagePlane(camX, camY, convX, convY, droneX, droneY, planeHalfLen) {
-    // Optical axis direction (camera → convergence)
-    const axDx = convX - camX, axDy = convY - camY;
-    const axLen = Math.hypot(axDx, axDy);
-    const ux = axDx / axLen, uy = axDy / axLen; // unit optical axis
-
-    // Image plane tangent (perpendicular to optical axis, rotated 90° CCW)
-    const tx = -uy, ty = ux;
-
-    // Image plane endpoints (centered at convergence point)
-    const ip1 = { x: convX + tx * planeHalfLen, y: convY + ty * planeHalfLen };
-    const ip2 = { x: convX - tx * planeHalfLen, y: convY - ty * planeHalfLen };
-
-    // Ray from camera to drone: P(s) = cam + s*(drone - cam)
-    // Intersection with image plane: dot(P(s) - conv, u) = 0
-    const rdx = droneX - camX, rdy = droneY - camY;
-    const denom = rdx * ux + rdy * uy;
-    let hitX = convX, hitY = convY, d = 0;
-    if (Math.abs(denom) > 1e-9) {
-        const s = ((convX - camX) * ux + (convY - camY) * uy) / denom;
-        hitX = camX + s * rdx;
-        hitY = camY + s * rdy;
-        // Signed distance along tangent from convergence center
-        d = (hitX - convX) * tx + (hitY - convY) * ty;
-    }
-    return { ip1, ip2, hit: { x: hitX, y: hitY }, d, tx, ty, ux, uy };
-}
-
-// ====== Drawing Helpers ======
-function drawGrid(ctx) {
-    ctx.strokeStyle = 'rgba(51,65,85,0.2)'; ctx.lineWidth = 0.5;
-    for (let i = 0; i <= 200; i += 20) { const cx = wx(i); ctx.beginPath(); ctx.moveTo(cx, 25); ctx.lineTo(cx, H-25); ctx.stroke(); }
-    for (let i = -80; i <= 80; i += 20) { const cy = wy(i); ctx.beginPath(); ctx.moveTo(45, cy); ctx.lineTo(W-45, cy); ctx.stroke(); }
-    ctx.strokeStyle = 'rgba(100,116,139,0.4)'; ctx.lineWidth = 1;
-    const ay = wy(0); ctx.beginPath(); ctx.moveTo(45, ay); ctx.lineTo(W-45, ay); ctx.stroke();
-}
-
-function drawCam(ctx, cx, cy, lbl) {
-    ctx.fillStyle = '#EF4444';
-    ctx.beginPath(); ctx.moveTo(cx+9,cy-7); ctx.lineTo(cx-9,cy-11); ctx.lineTo(cx-9,cy+11); ctx.lineTo(cx+9,cy+7); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = '#CBD5E1'; ctx.font = 'bold 9px monospace'; ctx.fillText(lbl, cx+13, cy+4);
-}
-
-function drawDot(ctx, cx, cy, r, color, glow) {
-    if (glow) { ctx.shadowColor = color; ctx.shadowBlur = 14; }
-    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
-    ctx.shadowBlur = 0;
-}
-
-function drawDrone(ctx, cx, cy, color, glow) {
-    if (glow) { ctx.shadowColor = color; ctx.shadowBlur = 18; }
-    ctx.strokeStyle = color; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.arc(cx, cy, 13, 0, Math.PI*2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx-7, cy); ctx.lineTo(cx+7, cy); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx, cy-7); ctx.lineTo(cx, cy+7); ctx.stroke();
-    ctx.shadowBlur = 0;
-}
-
-function drawDimLabel(ctx, x, y, text, color) {
-    ctx.font = 'bold 10px monospace';
-    const tw = ctx.measureText(text).width + 8;
-    ctx.fillStyle = 'rgba(15,23,42,0.85)'; ctx.fillRect(x - tw/2, y - 8, tw, 16);
-    ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(text, x, y+4); ctx.textAlign = 'start';
-}
-
-function drawDimLine(ctx, x1, y1, x2, y2, color) {
-    ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
-    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    ctx.setLineDash([]);
-}
-
-function draw90marker(ctx, cx, cy, angle1, angle2, color) {
-    const r = 12;
-    ctx.strokeStyle = color; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(cx, cy, r, angle1, angle2); ctx.stroke();
-    const mid = (angle1 + angle2) / 2;
-    ctx.fillStyle = color; ctx.font = '8px monospace';
-    ctx.fillText('90°', cx + Math.cos(mid)*(r+10)-10, cy + Math.sin(mid)*(r+10)+3);
-}
-
-// ====== Canvas 1: Interactive Simulation ======
-function draw1() {
-    const ctx = x1;
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#0B1120'; ctx.fillRect(0, 0, W, H);
-    drawGrid(ctx);
-
-    const hb = C.baseline / 2;
-    const cam1 = { x: 0, y: hb }, cam2 = { x: 0, y: -hb }, conv = { x: C.convDist, y: 0 };
-    const c1 = { x: wx(0), y: wy(hb) }, c2 = { x: wx(0), y: wy(-hb) }, cc = { x: wx(C.convDist), y: wy(0) };
-    const dc = { x: wx(drone.x), y: wy(drone.y) };
-
-    // --- Image Planes (FOV lines) ---
-    const ipLen = 55; // half-length in world units
-    const ip1 = calcImagePlane(cam1.x, cam1.y, conv.x, conv.y, drone.x, drone.y, ipLen);
-    const ip2 = calcImagePlane(cam2.x, cam2.y, conv.x, conv.y, drone.x, drone.y, ipLen);
-
-    // Draw image plane lines (thick dark lines like CAD V-shape)
-    ctx.strokeStyle = '#CBD5E1'; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(wx(ip1.ip1.x), wy(ip1.ip1.y)); ctx.lineTo(wx(ip1.ip2.x), wy(ip1.ip2.y)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(wx(ip2.ip1.x), wy(ip2.ip1.y)); ctx.lineTo(wx(ip2.ip2.x), wy(ip2.ip2.y)); ctx.stroke();
-
-    // 90° markers at convergence point for each image plane
-    const optAngle1 = Math.atan2(-(cam1.y - conv.y), -(cam1.x - conv.x));
-    const canvasAngle1 = Math.atan2(wy(conv.y) - wy(conv.y + 1), wx(conv.x) - wx(conv.x + 1));
-    // Use canvas-space angles for the 90° arcs
-    const ca1dir = Math.atan2(c1.y - cc.y, c1.x - cc.x);
-    const ca2dir = Math.atan2(c2.y - cc.y, c2.x - cc.x);
-    draw90marker(ctx, cc.x, cc.y - 6, ca1dir, ca1dir + Math.PI/2, '#94A3B8');
-    draw90marker(ctx, cc.x, cc.y + 6, ca2dir - Math.PI/2, ca2dir, '#94A3B8');
-
-    // --- Optical axes (dashed gray from camera to convergence and beyond) ---
-    ctx.strokeStyle = 'rgba(148,163,184,0.3)'; ctx.lineWidth = 1; ctx.setLineDash([6,4]);
-    ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(cc.x - 60, cc.y + (cc.y - c1.y)/(cc.x - c1.x)*(-60)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(c2.x, c2.y); ctx.lineTo(cc.x - 60, cc.y + (cc.y - c2.y)/(cc.x - c2.x)*(-60)); ctx.stroke();
-    ctx.setLineDash([]);
-
-    // --- FOV boundary cones (dashed blue, like CAD) ---
-    ctx.strokeStyle = 'rgba(59,130,246,0.2)'; ctx.lineWidth = 1; ctx.setLineDash([5,5]);
-    // Cam1 FOV edges through image plane endpoints
-    ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(wx(ip1.ip1.x), wy(ip1.ip1.y)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(wx(ip1.ip2.x), wy(ip1.ip2.y)); ctx.stroke();
-    // Cam2 FOV edges through image plane endpoints
-    ctx.beginPath(); ctx.moveTo(c2.x, c2.y); ctx.lineTo(wx(ip2.ip1.x), wy(ip2.ip1.y)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(c2.x, c2.y); ctx.lineTo(wx(ip2.ip2.x), wy(ip2.ip2.y)); ctx.stroke();
-
-    // Extend FOV edges beyond image planes (lighter dashed)
-    ctx.strokeStyle = 'rgba(59,130,246,0.1)';
-    for (const ip of [ip1, ip2]) {
-        for (const ep of [ip.ip1, ip.ip2]) {
-            const cam = (ip === ip1) ? cam1 : cam2;
-            const dirX = ep.x - cam.x, dirY = ep.y - cam.y;
-            const len = Math.hypot(dirX, dirY);
-            const ext = 120;
-            ctx.beginPath(); ctx.moveTo(wx(ep.x), wy(ep.y));
-            ctx.lineTo(wx(ep.x + dirX/len*ext), wy(ep.y + dirY/len*ext)); ctx.stroke();
-        }
-    }
-    ctx.setLineDash([]);
-
-    // --- Ray lines from cameras to drone (solid blue) ---
-    ctx.strokeStyle = '#3B82F6'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(dc.x, dc.y); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(c2.x, c2.y); ctx.lineTo(dc.x, dc.y); ctx.stroke();
-
-    // Extended rays beyond drone (faded)
-    ctx.strokeStyle = 'rgba(59,130,246,0.2)'; ctx.setLineDash([4,4]); ctx.lineWidth = 1;
-    for (const cam of [c1, c2]) {
-        const dx = dc.x - cam.x, dy = dc.y - cam.y, l = Math.hypot(dx, dy);
-        ctx.beginPath(); ctx.moveTo(dc.x, dc.y); ctx.lineTo(dc.x + dx/l*50, dc.y + dy/l*50); ctx.stroke();
-    }
-    ctx.setLineDash([]);
-
-    // --- Intersection dots on image planes (d1, d2 hit points) ---
-    const hit1c = { x: wx(ip1.hit.x), y: wy(ip1.hit.y) };
-    const hit2c = { x: wx(ip2.hit.x), y: wy(ip2.hit.y) };
-    drawDot(ctx, hit1c.x, hit1c.y, 5, '#F59E0B', true);
-    drawDot(ctx, hit2c.x, hit2c.y, 5, '#F59E0B', true);
-
-    // --- Dimension lines: d1 from convergence center to hit point ---
-    const fwd = fwdCalc(drone.x, drone.y);
-    drawDimLine(ctx, cc.x, cc.y, hit1c.x, hit1c.y, '#F59E0B');
-    drawDimLabel(ctx, (cc.x + hit1c.x)/2 - 40, (cc.y + hit1c.y)/2, `d1=${fwd.d1.toFixed(2)}`, '#F59E0B');
-    drawDimLine(ctx, cc.x, cc.y, hit2c.x, hit2c.y, '#F59E0B');
-    drawDimLabel(ctx, (cc.x + hit2c.x)/2 - 40, (cc.y + hit2c.y)/2, `d2=${fwd.d2.toFixed(2)}`, '#F59E0B');
-
-    // --- Baseline dimension ---
-    drawDimLine(ctx, c1.x + 22, c1.y, c2.x + 22, c2.y, '#64748B');
-    drawDimLabel(ctx, c1.x + 40, (c1.y + c2.y)/2, `B=${C.baseline}m`, '#94A3B8');
-
-    // --- Cameras ---
-    drawCam(ctx, c1.x, c1.y, 'Cam1');
-    drawCam(ctx, c2.x, c2.y, 'Cam2');
-
-    // --- Convergence point ---
-    drawDot(ctx, cc.x, cc.y, 4, '#EF4444', false);
-    ctx.fillStyle = '#64748B'; ctx.font = '8px monospace'; ctx.fillText(`Conv ${C.convDist}m`, cc.x-22, cc.y+16);
-
-    // --- Drone ---
-    drawDrone(ctx, dc.x, dc.y, '#3B82F6', true);
-    drawDimLabel(ctx, dc.x, dc.y - 22, `(${drone.x.toFixed(1)}, ${drone.y.toFixed(1)})`, '#93C5FD');
-
-    // Title
-    ctx.fillStyle = '#3B82F6'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('Interactive — คลิกลากจุดโดรนสีฟ้า', 50, 22);
-}
-
-// ====== Canvas 2: Formula Proof ======
-function draw2(p) {
-    const ctx = x2;
-    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#0B1120'; ctx.fillRect(0, 0, W, H);
-    drawGrid(ctx);
-    if (!p) return;
-
-    const hb = C.baseline / 2;
-    const cam1 = { x: 0, y: hb }, cam2 = { x: 0, y: -hb }, conv = { x: C.convDist, y: 0 };
-    const c1 = { x: wx(0), y: wy(hb) }, c2 = { x: wx(0), y: wy(-hb) }, cc = { x: wx(C.convDist), y: wy(0) };
-    const pc = { x: wx(p.x), y: wy(p.y) };
-
-    // --- Image Planes ---
-    const ipLen = 55;
-    const ip1 = calcImagePlane(cam1.x, cam1.y, conv.x, conv.y, p.x, p.y, ipLen);
-    const ip2 = calcImagePlane(cam2.x, cam2.y, conv.x, conv.y, p.x, p.y, ipLen);
-
-    ctx.strokeStyle = '#CBD5E1'; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(wx(ip1.ip1.x), wy(ip1.ip1.y)); ctx.lineTo(wx(ip1.ip2.x), wy(ip1.ip2.y)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(wx(ip2.ip1.x), wy(ip2.ip1.y)); ctx.lineTo(wx(ip2.ip2.x), wy(ip2.ip2.y)); ctx.stroke();
-
-    // 90° markers
-    const ca1d = Math.atan2(c1.y - cc.y, c1.x - cc.x);
-    const ca2d = Math.atan2(c2.y - cc.y, c2.x - cc.x);
-    draw90marker(ctx, cc.x, cc.y - 6, ca1d, ca1d + Math.PI/2, '#6EE7B7');
-    draw90marker(ctx, cc.x, cc.y + 6, ca2d - Math.PI/2, ca2d, '#6EE7B7');
-
-    // Optical axes dashed
-    ctx.strokeStyle = 'rgba(148,163,184,0.25)'; ctx.lineWidth = 1; ctx.setLineDash([6,4]);
-    ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(cc.x - 50, cc.y + (cc.y-c1.y)/(cc.x-c1.x)*(-50)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(c2.x, c2.y); ctx.lineTo(cc.x - 50, cc.y + (cc.y-c2.y)/(cc.x-c2.x)*(-50)); ctx.stroke();
-    ctx.setLineDash([]);
-
-    // FOV boundaries
-    ctx.strokeStyle = 'rgba(34,197,94,0.15)'; ctx.lineWidth = 1; ctx.setLineDash([5,5]);
-    for (const ip of [ip1, ip2]) {
-        const cam = (ip === ip1) ? c1 : c2;
-        ctx.beginPath(); ctx.moveTo(cam.x, cam.y); ctx.lineTo(wx(ip.ip1.x), wy(ip.ip1.y)); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cam.x, cam.y); ctx.lineTo(wx(ip.ip2.x), wy(ip.ip2.y)); ctx.stroke();
-    }
-    ctx.setLineDash([]);
-
-    // Laser rays (solid green)
-    ctx.strokeStyle = '#22C55E'; ctx.lineWidth = 2.5; ctx.shadowColor = '#22C55E'; ctx.shadowBlur = 8;
-    ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(pc.x, pc.y); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(c2.x, c2.y); ctx.lineTo(pc.x, pc.y); ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    // Hit points on image planes
-    const hit1c = { x: wx(ip1.hit.x), y: wy(ip1.hit.y) };
-    const hit2c = { x: wx(ip2.hit.x), y: wy(ip2.hit.y) };
-    drawDot(ctx, hit1c.x, hit1c.y, 5, '#F59E0B', true);
-    drawDot(ctx, hit2c.x, hit2c.y, 5, '#F59E0B', true);
-
-    // Angle arcs at cameras
-    const arcR = 30;
-    ctx.strokeStyle = '#06B6D4'; ctx.lineWidth = 1.5;
-    const ba1 = Math.atan2(cc.y - c1.y, cc.x - c1.x), ra1 = Math.atan2(pc.y - c1.y, pc.x - c1.x);
-    ctx.beginPath(); ctx.arc(c1.x, c1.y, arcR, Math.min(ba1,ra1), Math.max(ba1,ra1)); ctx.stroke();
-    const mid1 = (ba1+ra1)/2;
-    ctx.fillStyle = '#06B6D4'; ctx.font = '9px monospace';
-    ctx.fillText(`β1=${p.b1.toFixed(1)}°`, c1.x+Math.cos(mid1)*(arcR+12)-18, c1.y+Math.sin(mid1)*(arcR+12)+3);
-    const ba2 = Math.atan2(cc.y - c2.y, cc.x - c2.x), ra2 = Math.atan2(pc.y - c2.y, pc.x - c2.x);
-    ctx.beginPath(); ctx.arc(c2.x, c2.y, arcR, Math.min(ba2,ra2), Math.max(ba2,ra2)); ctx.stroke();
-    const mid2 = (ba2+ra2)/2;
-    ctx.fillText(`β2=${p.b2.toFixed(1)}°`, c2.x+Math.cos(mid2)*(arcR+12)-18, c2.y+Math.sin(mid2)*(arcR+12)+3);
-
-    // Baseline
-    drawDimLine(ctx, c1.x+22, c1.y, c2.x+22, c2.y, '#64748B');
-    drawDimLabel(ctx, c1.x+40, (c1.y+c2.y)/2, `B=${C.baseline}m`, '#94A3B8');
-
-    // Cameras
-    drawCam(ctx, c1.x, c1.y, 'Cam1'); drawCam(ctx, c2.x, c2.y, 'Cam2');
-    drawDot(ctx, cc.x, cc.y, 3, '#EF4444', false);
-
-    // Calculated drone (green)
-    drawDrone(ctx, pc.x, pc.y, '#22C55E', true);
-    drawDimLabel(ctx, pc.x, pc.y - 22, `Proof (${p.x.toFixed(1)}, ${p.y.toFixed(1)})`, '#86EFAC');
-
-    // Ghost of original drone (faded blue ring)
-    const ox = wx(drone.x), oy = wy(drone.y);
-    ctx.strokeStyle = 'rgba(59,130,246,0.25)'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
-    ctx.beginPath(); ctx.arc(ox, oy, 15, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
-
-    ctx.fillStyle = '#22C55E'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('Proof — ลำแสงเลเซอร์ตรีโกณมิติ', 50, 22);
-}
-
-// ====== Update Loop ======
+// ====== Update System ======
 function update() {
-    const fwd = fwdCalc(drone.x, drone.y);
-    const rev = revCalc(fwd.d1, fwd.d2);
-    document.getElementById('oPos').innerText = `(${drone.x.toFixed(2)}, ${drone.y.toFixed(2)})`;
-    document.getElementById('oDist').innerText = Math.hypot(drone.x, drone.y).toFixed(2) + ' m';
-    document.getElementById('oD1').innerText = fwd.d1.toFixed(2);
-    document.getElementById('oD2').innerText = fwd.d2.toFixed(2);
-    syncInputs();
-    draw1();
+    const hb = C.baseline / 2;
+
+    // 1. Math calculations first
+    const fwd = fwdCalc(dronePos.x, dronePos.y, dronePos.z);
+    const rev = revCalc(fwd.d1z, fwd.d2z, fwd.dy1, fwd.dy2);
+
+    // 2. Position cameras on mounting heights along Z-axis
+    cam1Mesh.position.set(0, C.cam1H, hb);
+    cam2Mesh.position.set(0, C.cam2H, -hb);
+    camTip1.position.set(3, C.cam1H, hb);
+    camTip2.position.set(3, C.cam2H, -hb);
+
+    // Camera mounting poles (from ground to camera)
+    pole1Geo.setFromPoints([new THREE.Vector3(0, 0, hb), cam1Mesh.position]);
+    pole2Geo.setFromPoints([new THREE.Vector3(0, 0, -hb), cam2Mesh.position]);
+    pole1Line.computeLineDistances();
+    pole2Line.computeLineDistances();
+
+    // Position Convergence Points for Cam 1 and Cam 2
+    const conv1Pos = new THREE.Vector3(C.convDist, C.conv1H, 0);
+    const conv2Pos = new THREE.Vector3(C.convDist, C.conv2H, 0);
+    conv1Mesh.position.copy(conv1Pos);
+    conv2Mesh.position.copy(conv2Pos);
+
+    // Convergence line from cam1 -> conv1 -> conv2 -> cam2
+    convLineGeo.setFromPoints([cam1Mesh.position, conv1Pos, conv2Pos, cam2Mesh.position]);
+    convLine.computeLineDistances();
+
+    // Update FOV Screens at Convergence Points
+    const s1 = updateFovScreen(screen1, cam1Mesh.position, conv1Pos);
+    const s2 = updateFovScreen(screen2, cam2Mesh.position, conv2Pos);
+
+    // Update Faint 3D FOV Beams (from cameras to convergence screens)
+    updateFaintFrustum(frustum1, cam1Mesh.position, s1.pTL, s1.pTR, s1.pBR, s1.pBL);
+    updateFaintFrustum(frustum2, cam2Mesh.position, s2.pTL, s2.pTR, s2.pBR, s2.pBL);
+
+    // Drone
+    droneMesh.position.copy(dronePos);
+    ringMesh.position.set(dronePos.x, 0.1, dronePos.z);
+
+    // Altitude indicator line
+    altLineGeo.setFromPoints([new THREE.Vector3(dronePos.x, 0, dronePos.z), dronePos]);
+    altLine.computeLineDistances();
+
+    // Laser rays
+    ray1Geo.setFromPoints([cam1Mesh.position, dronePos]);
+    ray2Geo.setFromPoints([cam2Mesh.position, dronePos]);
+
+    // ====== Update 3D Labels ======
+    // Camera labels
+    lblCam1.position.set(0, C.cam1H + 5, hb);
+    lblCam2.position.set(0, C.cam2H + 5, -hb);
+
+    // Drone label
+    lblDrone.position.set(dronePos.x, dronePos.y + 7, dronePos.z);
+    lblDrone.element.textContent = `🛸 Drone (${dronePos.x.toFixed(1)}, ${dronePos.z.toFixed(1)}, ${dronePos.y.toFixed(1)})`;
+
+    // Convergence labels
+    lblConv.position.set(C.convDist, Math.max(C.conv1H, C.conv2H) + 4, 0);
+    lblConv.element.textContent = `⊕ Conv R=${C.convDist.toFixed(0)}m`;
+
+    // Ray distance labels (midpoint of each laser line)
+    const dist1 = cam1Mesh.position.distanceTo(dronePos);
+    const dist2 = cam2Mesh.position.distanceTo(dronePos);
+    const mid1 = new THREE.Vector3().addVectors(cam1Mesh.position, dronePos).multiplyScalar(0.5);
+    const mid2 = new THREE.Vector3().addVectors(cam2Mesh.position, dronePos).multiplyScalar(0.5);
+    lblRay1Dist.position.copy(mid1).add(new THREE.Vector3(0, 3, 0));
+    lblRay2Dist.position.copy(mid2).add(new THREE.Vector3(0, 3, 0));
+    lblRay1Dist.element.textContent = `${dist1.toFixed(1)} m`;
+    lblRay2Dist.element.textContent = `${dist2.toFixed(1)} m`;
+
+    // Screen Tag Labels (at top corners of screens)
+    lblScreen1Tag.position.copy(s1.pTL).add(new THREE.Vector3(0, 3, 0));
+    lblScreen1Tag.element.textContent = `📺 Cam 1 Screen (R=${C.convDist.toFixed(0)}m)`;
+    lblScreen2Tag.position.copy(s2.pTR).add(new THREE.Vector3(0, 3, 0));
+    lblScreen2Tag.element.textContent = `📺 Cam 2 Screen (R=${C.convDist.toFixed(0)}m)`;
+
+    // Screen Projected Target Dot Labels with exact (d1y, dz) and (d2y, dz)
+    const preset = LENS_PRESETS[activeLensKey] || LENS_PRESETS.elp12;
+    if (preset.isDemo) {
+        lblScreen1Dot.position.copy(s1.projPoint).add(new THREE.Vector3(0, 4.5, 0));
+        lblScreen1Dot.element.textContent = `🔴 Cam 1: d1y=${fwd.d1z.toFixed(2)}, dz=${fwd.dy1.toFixed(2)} unit`;
+
+        lblScreen2Dot.position.copy(s2.projPoint).add(new THREE.Vector3(0, 4.5, 0));
+        lblScreen2Dot.element.textContent = `🟠 Cam 2: d2y=${fwd.d2z.toFixed(2)}, dz=${fwd.dy2.toFixed(2)} unit`;
+    } else {
+        const d1_mm = (fwd.d1z / C.focal) * C.focal_mm;
+        const d2_mm = (fwd.d2z / C.focal) * C.focal_mm;
+        const dz1_mm = (fwd.dy1 / C.focal) * C.focal_mm;
+        const dz2_mm = (fwd.dy2 / C.focal) * C.focal_mm;
+        lblScreen1Dot.position.copy(s1.projPoint).add(new THREE.Vector3(0, 4.5, 0));
+        lblScreen1Dot.element.textContent = `🔴 Cam 1: d1y=${fwd.d1z.toFixed(1)} px, dz1=${fwd.dy1.toFixed(1)} px (${dz1_mm.toFixed(2)}mm)`;
+
+        lblScreen2Dot.position.copy(s2.projPoint).add(new THREE.Vector3(0, 4.5, 0));
+        lblScreen2Dot.element.textContent = `🟠 Cam 2: d2y=${fwd.d2z.toFixed(1)} px, dz2=${fwd.dy2.toFixed(1)} px (${dz2_mm.toFixed(2)}mm)`;
+    }
+
+    // Convergence line distance labels (midpoint cam→conv)
+    const convDist1 = cam1Mesh.position.distanceTo(conv1Pos);
+    const convDist2 = cam2Mesh.position.distanceTo(conv2Pos);
+    const midC1 = new THREE.Vector3().addVectors(cam1Mesh.position, conv1Pos).multiplyScalar(0.5);
+    const midC2 = new THREE.Vector3().addVectors(cam2Mesh.position, conv2Pos).multiplyScalar(0.5);
+    lblConvDist1.position.copy(midC1).add(new THREE.Vector3(0, -3, 0));
+    lblConvDist2.position.copy(midC2).add(new THREE.Vector3(0, -3, 0));
+    lblConvDist1.element.textContent = `${convDist1.toFixed(1)} m`;
+    lblConvDist2.element.textContent = `${convDist2.toFixed(1)} m`;
+
+    // Altitude label (midpoint of altitude line)
+    if (dronePos.y > 0.5) {
+        lblAltitude.position.set(dronePos.x, dronePos.y / 2, dronePos.z + 3);
+        lblAltitude.element.textContent = `↕ ${dronePos.y.toFixed(1)} m`;
+        lblAltitude.visible = true;
+    } else {
+        lblAltitude.visible = false;
+    }
+
+    // Sync input fields (UI: X=forward, Y=lateral(three.z), Z=height(three.y))
+    document.getElementById('inpX').value = dronePos.x.toFixed(1);
+    document.getElementById('inpY').value = dronePos.z.toFixed(1);
+    document.getElementById('inpZ').value = dronePos.y.toFixed(1);
+    document.getElementById('inpD1Z').value = fwd.d1z.toFixed(1);
+    document.getElementById('inpD2Z').value = fwd.d2z.toFixed(1);
+    document.getElementById('inpDY').value = fwd.dy1.toFixed(1);
+    document.getElementById('inpDY2').value = fwd.dy2.toFixed(1);
+
+    // Viewport info row (display as X, Y_lateral, Z_height)
+    const dist3D = Math.hypot(dronePos.x, dronePos.y, dronePos.z);
+    document.getElementById('oPos').innerText = `(${dronePos.x.toFixed(1)}, ${dronePos.z.toFixed(1)}, ${dronePos.y.toFixed(1)})`;
+    document.getElementById('oDist').innerText = dist3D.toFixed(2) + ' m';
+    document.getElementById('oD1Z').innerText = fwd.d1z.toFixed(1);
+    document.getElementById('oD2Z').innerText = fwd.d2z.toFixed(1);
+    document.getElementById('oDY').innerText = `${fwd.dy1.toFixed(1)} / ${fwd.dy2.toFixed(1)}`;
+
+    // Proof panel
     if (rev) {
-        const err = Math.hypot(rev.x - drone.x, rev.y - drone.y);
-        document.getElementById('oCalc').innerText = `(${rev.x.toFixed(2)}, ${rev.y.toFixed(2)})`;
-        document.getElementById('oB1').innerText = rev.b1.toFixed(2);
-        document.getElementById('oB2').innerText = rev.b2.toFixed(2);
-        document.getElementById('oDB').innerText = rev.db.toFixed(2);
+        const err = Math.hypot(rev.x - dronePos.x, rev.y - dronePos.y, rev.z - dronePos.z);
+        document.getElementById('oCalc').innerText = `(${rev.x.toFixed(2)}, ${rev.z.toFixed(2)}, ${rev.y.toFixed(2)})`;
+        document.getElementById('oB1').innerText = (rev.b1 * 180 / Math.PI).toFixed(2);
+        document.getElementById('oB2').innerText = (rev.b2 * 180 / Math.PI).toFixed(2);
+        document.getElementById('oDB').innerText = (rev.db * 180 / Math.PI).toFixed(2);
         document.getElementById('oErr').innerText = err.toFixed(6) + ' m';
         const bd = document.getElementById('oProof');
         if (err < 0.01) { bd.className = 'proof-badge proof-ok'; bd.innerText = '✓ EXACT MATCH — 100%!'; }
         else { bd.className = 'proof-badge proof-err'; bd.innerText = `✗ Error ${err.toFixed(4)} m`; }
-        draw2(rev);
     }
 }
+
+// ====== View Presets & Display Toggles ======
+let showLabels = true;
+let showScreens = true;
+let showRays = true;
+
+function toggleLabels() {
+    showLabels = !showLabels;
+    const btn = document.getElementById('btnToggleLabels');
+    if (showLabels) {
+        btn.classList.add('active');
+        btn.innerText = '🏷️ 3D Labels: ON';
+        labelRenderer.domElement.style.display = 'block';
+    } else {
+        btn.classList.remove('active');
+        btn.innerText = '🏷️ 3D Labels: OFF';
+        labelRenderer.domElement.style.display = 'none';
+    }
+}
+
+function setScreenVisibility(screen, visible) {
+    screen.fillMesh.visible = visible;
+    screen.borderLine.visible = visible;
+    screen.crossLine.visible = visible;
+    screen.centerDot.visible = visible;
+    screen.targetDot.visible = visible;
+    screen.offsetLine.visible = visible;
+}
+
+function toggleScreens() {
+    showScreens = !showScreens;
+    const btn = document.getElementById('btnToggleScreens');
+    if (showScreens) {
+        btn.classList.add('active');
+        btn.innerText = '📺 FOV Screens: ON';
+    } else {
+        btn.classList.remove('active');
+        btn.innerText = '📺 FOV Screens: OFF';
+    }
+    setScreenVisibility(screen1, showScreens);
+    setScreenVisibility(screen2, showScreens);
+    frustum1.fillMesh.visible = showScreens;
+    frustum1.edgeLine.visible = showScreens;
+    frustum2.fillMesh.visible = showScreens;
+    frustum2.edgeLine.visible = showScreens;
+    lblScreen1Tag.element.style.display = showScreens ? 'block' : 'none';
+    lblScreen2Tag.element.style.display = showScreens ? 'block' : 'none';
+    lblScreen1Dot.element.style.display = showScreens ? 'block' : 'none';
+    lblScreen2Dot.element.style.display = showScreens ? 'block' : 'none';
+}
+
+function toggleRays() {
+    showRays = !showRays;
+    const btn = document.getElementById('btnToggleRays');
+    if (showRays) {
+        btn.classList.add('active');
+        btn.innerText = '⚡ Laser Rays: ON';
+    } else {
+        btn.classList.remove('active');
+        btn.innerText = '⚡ Laser Rays: OFF';
+    }
+    ray1Line.visible = showRays;
+    ray2Line.visible = showRays;
+    lblRay1Dist.element.style.display = showRays ? 'block' : 'none';
+    lblRay2Dist.element.style.display = showRays ? 'block' : 'none';
+}
+
+function setView(type) {
+    currentView = type;
+    document.querySelectorAll('.view-btn').forEach(b => {
+        if (b.id === 'btnTop' || b.id === 'btnSide' || b.id === 'btnIso') {
+            b.classList.remove('active');
+        }
+    });
+    if (type === 'top') {
+        camera.position.set(60, 280, 0);
+        controls.target.set(60, 0, 0);
+        document.getElementById('btnTop').classList.add('active');
+        document.getElementById('oView').innerText = 'Top View';
+    } else if (type === 'side') {
+        camera.position.set(60, 15, 280);
+        controls.target.set(60, 0, 0);
+        document.getElementById('btnSide').classList.add('active');
+        document.getElementById('oView').innerText = 'Side View';
+    } else {
+        camera.position.set(200, 160, 200);
+        controls.target.set(60, 0, 0);
+        document.getElementById('btnIso').classList.add('active');
+        document.getElementById('oView').innerText = 'Isometric 3D';
+    }
+    controls.update();
+}
+
+// ====== Config Handlers ======
+function onLensChange() {
+    const sel = document.getElementById('selLens').value;
+    activeLensKey = sel;
+    const preset = LENS_PRESETS[sel];
+    if (preset && sel !== 'custom') {
+        C.focal_mm = preset.f_mm;
+        C.focal = preset.f_px;
+        document.getElementById('inpF').value = preset.f_mm;
+        if (preset.isDemo) {
+            document.getElementById('lblF').innerText = preset.f_mm.toFixed(1) + ' unit';
+            document.getElementById('lblFPx').innerText = '(CAD Demo Scale)';
+            document.getElementById('hdrOffsetUnit').innerText = '(unit)';
+        } else {
+            document.getElementById('lblF').innerText = preset.f_mm.toFixed(1) + ' mm';
+            document.getElementById('lblFPx').innerText = `(≈ ${Math.round(preset.f_px)} px / 720p)`;
+            document.getElementById('hdrOffsetUnit').innerText = '(px)';
+        }
+    }
+    update();
+}
+
+function onCustomFmm() {
+    const val_mm = parseFloat(document.getElementById('inpF').value);
+    C.focal_mm = val_mm;
+    C.focal = val_mm * (IMG_W_PX / SENSOR_W_MM);
+    document.getElementById('selLens').value = 'custom';
+    activeLensKey = 'custom';
+    LENS_PRESETS.custom.f_mm = val_mm;
+    LENS_PRESETS.custom.f_px = C.focal;
+    LENS_PRESETS.custom.fovH = 2 * Math.atan(SENSOR_W_MM / (2 * val_mm)) * (180 / Math.PI);
+    LENS_PRESETS.custom.fovV = 2 * Math.atan(SENSOR_H_MM / (2 * val_mm)) * (180 / Math.PI);
+    document.getElementById('lblF').innerText = val_mm.toFixed(1) + ' mm';
+    document.getElementById('lblFPx').innerText = `(≈ ${Math.round(C.focal)} px / 720p)`;
+    document.getElementById('hdrOffsetUnit').innerText = '(px)';
+    update();
+}
+
 function onCfg() {
     C.baseline = parseFloat(document.getElementById('sldrB').value);
     C.convDist = parseFloat(document.getElementById('sldrR').value);
-    C.focal = parseFloat(document.getElementById('inpF').value);
+    C.cam1H = parseFloat(document.getElementById('inpCam1H').value) || 0;
+    C.cam2H = parseFloat(document.getElementById('inpCam2H').value) || 0;
+    C.conv1H = parseFloat(document.getElementById('inpConv1H').value) || 0;
+    C.conv2H = parseFloat(document.getElementById('inpConv2H').value) || 0;
     document.getElementById('lblB').innerText = C.baseline.toFixed(1);
     document.getElementById('lblR').innerText = C.convDist;
-    document.getElementById('lblF').innerText = C.focal;
     update();
 }
 
-// ====== Manual Input Handlers ======
-function applyDroneXY() {
-    const nx = parseFloat(document.getElementById('inpDroneX').value);
-    const ny = parseFloat(document.getElementById('inpDroneY').value);
-    if (!isNaN(nx) && !isNaN(ny) && nx > 0) {
-        drone.x = nx; drone.y = ny;
+function applyXYZ() {
+    dronePos.x = parseFloat(document.getElementById('inpX').value);
+    dronePos.z = parseFloat(document.getElementById('inpY').value);  // UI Y = three.z (lateral)
+    dronePos.y = parseFloat(document.getElementById('inpZ').value);  // UI Z = three.y (height)
+    update();
+}
+
+function applyReverse() {
+    const d1z = parseFloat(document.getElementById('inpD1Z').value);
+    const d2z = parseFloat(document.getElementById('inpD2Z').value);
+    const dy1 = parseFloat(document.getElementById('inpDY').value);
+    const dy2 = parseFloat(document.getElementById('inpDY2').value);
+    const rev = revCalc(d1z, d2z, dy1, dy2);
+    if (rev && rev.x > 0) {
+        dronePos.set(rev.x, rev.y, rev.z);
         update();
     }
 }
-function applyD1D2() {
-    const nd1 = parseFloat(document.getElementById('inpD1').value);
-    const nd2 = parseFloat(document.getElementById('inpD2').value);
-    if (!isNaN(nd1) && !isNaN(nd2)) {
-        const rev = revCalc(nd1, nd2);
-        if (rev && rev.x > 0) {
-            drone.x = rev.x; drone.y = rev.y;
-            document.getElementById('inpDroneX').value = rev.x.toFixed(2);
-            document.getElementById('inpDroneY').value = rev.y.toFixed(2);
-            update();
+
+// Enter key support
+['inpX','inpY','inpZ'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') applyXYZ(); }));
+['inpD1Z','inpD2Z','inpDY','inpDY2'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') applyReverse(); }));
+
+// ====== 3D Raycasting & Dragging ======
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);  // XZ ground plane
+const vertPlane = new THREE.Plane();  // vertical plane for right-click drag
+const dragOffset = new THREE.Vector3();
+let dragMode = null; // 'ground' or 'vertical'
+let vertDragStartY = 0;
+
+// Prevent right-click context menu on 3D canvas
+renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+
+window.addEventListener('pointerdown', (e) => {
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(droneMesh);
+    if (intersects.length > 0) {
+        isDragging = true;
+        controls.enabled = false;
+        if (e.button === 2) {
+            // Right-click: vertical drag (height / three.y)
+            dragMode = 'vertical';
+            // Create a plane facing the camera that passes through the drone
+            const camDir = new THREE.Vector3();
+            camera.getWorldDirection(camDir);
+            camDir.y = 0; camDir.normalize();
+            vertPlane.setFromNormalAndCoplanarPoint(camDir, dronePos);
+            vertDragStartY = e.clientY;
+        } else {
+            // Left-click: ground drag (XZ plane)
+            dragMode = 'ground';
+            const hitPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(groundPlane, hitPoint);
+            dragOffset.copy(hitPoint).sub(dronePos);
         }
     }
-}
-// Sync input fields when drone moves via drag/click
-function syncInputs() {
-    document.getElementById('inpDroneX').value = drone.x.toFixed(2);
-    document.getElementById('inpDroneY').value = drone.y.toFixed(2);
-    const fwd = fwdCalc(drone.x, drone.y);
-    document.getElementById('inpD1').value = fwd.d1.toFixed(2);
-    document.getElementById('inpD2').value = fwd.d2.toFixed(2);
-}
-// Allow Enter key to apply values
-document.getElementById('inpDroneX').addEventListener('keydown', (e) => { if(e.key==='Enter') applyDroneXY(); });
-document.getElementById('inpDroneY').addEventListener('keydown', (e) => { if(e.key==='Enter') applyDroneXY(); });
-document.getElementById('inpD1').addEventListener('keydown', (e) => { if(e.key==='Enter') applyD1D2(); });
-document.getElementById('inpD2').addEventListener('keydown', (e) => { if(e.key==='Enter') applyD1D2(); });
+});
 
-// ====== Mouse Interaction ======
-cv1.addEventListener('mousedown', (e) => {
-    const r = cv1.getBoundingClientRect(), s = W / r.width;
-    const mx = (e.clientX - r.left)*s, my = (e.clientY - r.top)*s;
-    if (Math.hypot(mx - wx(drone.x), my - wy(drone.y)) < 25) dragging = true;
+window.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    if (dragMode === 'ground') {
+        raycaster.setFromCamera(mouse, camera);
+        const pt = new THREE.Vector3();
+        if (raycaster.ray.intersectPlane(groundPlane, pt)) {
+            dronePos.x = pt.x - dragOffset.x;
+            dronePos.z = pt.z - dragOffset.z;
+            update();
+        }
+    } else if (dragMode === 'vertical') {
+        // Map vertical mouse delta to height change
+        const deltaPixels = vertDragStartY - e.clientY;
+        const sensitivity = 0.5;
+        dronePos.y += deltaPixels * sensitivity;
+        if (dronePos.y < 0) dronePos.y = 0;
+        vertDragStartY = e.clientY;
+        update();
+    }
 });
-cv1.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    const r = cv1.getBoundingClientRect(), s = W / r.width;
-    drone.x = Math.max(3, rx((e.clientX - r.left)*s));
-    drone.y = ry((e.clientY - r.top)*s);
-    update();
+
+window.addEventListener('pointerup', () => { isDragging = false; dragMode = null; controls.enabled = true; });
+
+window.addEventListener('resize', () => {
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    labelRenderer.setSize(container.clientWidth, container.clientHeight);
 });
-window.addEventListener('mouseup', () => dragging = false);
-cv1.addEventListener('click', (e) => {
-    if (dragging) return;
-    const r = cv1.getBoundingClientRect(), s = W / r.width;
-    drone.x = Math.max(3, rx((e.clientX - r.left)*s));
-    drone.y = ry((e.clientY - r.top)*s);
-    update();
-});
+
+// ====== Init & Animate ======
 update();
+setView('top');
+
+function animate() {
+    requestAnimationFrame(animate);
+    ringMesh.rotation.z += 0.005;
+    controls.update();
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+}
+animate();
 </script>

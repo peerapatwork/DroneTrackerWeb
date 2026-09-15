@@ -53,4 +53,61 @@ public class StereoTriangulatorService
             DistanceFromBaseline = Math.Round(Math.Sqrt(calcX * calcX + calcY * calcY), 2)
         };
     }
+
+    // 1. คำนวณภาพไปข้างหน้า (Forward: 3D World -> Image Offsets d1y, d2y, dz1, dz2)
+    public (double d1y, double d2y, double dz1, double dz2) CalculateImageOffsets3D(double targetX, double targetY, double targetZ)
+    {
+        double hb = _config.Baseline / 2.0;
+
+        // แนวนอน (Horizontal)
+        double angle1 = Math.Atan2(targetY - hb, targetX);
+        double angle2 = Math.Atan2(targetY + hb, targetX);
+        double conv1 = Math.Atan2(-hb, _config.ConvergenceDistance);
+        double conv2 = Math.Atan2(hb, _config.ConvergenceDistance);
+        double d1y = Math.Tan(angle1 - conv1) * _config.FocalLength;
+        double d2y = Math.Tan(angle2 - conv2) * _config.FocalLength;
+
+        // แนวตั้ง (Vertical พร้อมมุมก้มเงยและความสูงกล้อง)
+        double elevConv1 = Math.Atan2(_config.Focus1Height - _config.Camera1Height, _config.ConvergenceDistance);
+        double elevConv2 = Math.Atan2(_config.Focus2Height - _config.Camera2Height, _config.ConvergenceDistance);
+        double elevTarget1 = Math.Atan2(targetZ - _config.Camera1Height, targetX);
+        double elevTarget2 = Math.Atan2(targetZ - _config.Camera2Height, targetX);
+        double dz1 = Math.Tan(elevTarget1 - elevConv1) * _config.FocalLength;
+        double dz2 = Math.Tan(elevTarget2 - elevConv2) * _config.FocalLength;
+
+        return (Math.Round(d1y, 2), Math.Round(d2y, 2), Math.Round(dz1, 2), Math.Round(dz2, 2));
+    }
+
+    // 2. ถอดสูตรย้อนกลับ (Reverse: Image Offsets -> 3D World Position)
+    public TriangulationResults CalculateReverseTriangulation3D(double d1y, double d2y, double dz1, double dz2 = 0)
+    {
+        double hb = _config.Baseline / 2.0;
+        double theta1Conv = Math.Atan2(-hb, _config.ConvergenceDistance);
+        double theta2Conv = Math.Atan2(hb, _config.ConvergenceDistance);
+        double beta1 = theta1Conv + Math.Atan2(d1y, _config.FocalLength);
+        double beta2 = theta2Conv + Math.Atan2(d2y, _config.FocalLength);
+
+        double sinDiff = Math.Sin(beta2 - beta1);
+        if (Math.Abs(sinDiff) < 1e-9) return null;
+
+        double t1 = (_config.Baseline * Math.Cos(beta2)) / sinDiff;
+        double calcX = t1 * Math.Cos(beta1);
+        double calcY = hb + (t1 * Math.Sin(beta1));
+
+        // ถอดความสูง (Z) จากมุมกล้อง 1
+        double elevConv1 = Math.Atan2(_config.Focus1Height - _config.Camera1Height, _config.ConvergenceDistance);
+        double elevTarget1 = elevConv1 + Math.Atan2(dz1, _config.FocalLength);
+        double calcZ = _config.Camera1Height + (calcX * Math.Tan(elevTarget1));
+
+        return new TriangulationResults
+        {
+            DroneX = Math.Round(calcX, 2),
+            DroneY = Math.Round(calcY, 2),
+            DroneZ = Math.Round(calcZ, 2),
+            RayAngleTopDeg = Math.Round(beta1 * 180.0 / Math.PI, 2),
+            RayAngleBottomDeg = Math.Round(beta2 * 180.0 / Math.PI, 2),
+            IntersectionAngleDeg = Math.Round(sinDiff * 180.0 / Math.PI, 2),
+            DistanceFromBaseline = Math.Round(Math.Sqrt(calcX * calcX + calcY * calcY + calcZ * calcZ), 2)
+        };
+    }
 }

@@ -17,24 +17,28 @@ public class TrackerApiController : ControllerBase
         _config = config;
     }
 
-    // Endpoint ที่ 1: คำนวณเดินหน้า (ลากเมาส์พิกัด X, Y ➔ ได้ค่า d1, d2)
+    // Endpoint คำนวณเดินหน้า (ลากเมาส์พิกัด X, Y ➔ ได้ค่า d1, d2)
     [HttpGet("simulate")]
-    public IActionResult SimulateForward(double x, double y)
+    public IActionResult SimulateForward(double x, double y, double z)
     {
-        var offsets = _triangulator.CalculateImageOffsets(x, y);
+        var offsets = _triangulator.CalculateImageOffsets3D(x, y, z);
         return Ok(new
         {
-            TargetX = x,    
+            TargetX = x,
             TargetY = y,
-            OffsetTop = offsets.d1,
-            OffsetBottom = offsets.d2
+            TargetZ = z,
+            OffsetTop = offsets.d1y,
+            OffsetBottom = offsets.d2y,
+            OffsetZ1 = offsets.dz1,
+            OffsetZ2 = offsets.dz2
         });
     }
-    // Endpoint ที่ 2: คำนวณย้อนกลับ (ส่ง d1, d2 ➔ พิสูจน์หาพิกัด X, Y และมุมทั้งหมด)
-    [HttpPost("triangulate")]
-    public IActionResult TriangulateReverse([FromBody] ImageOffsetInput input)
+
+    // Endpoint คำนวณย้อนกลับ 3D (ส่ง d1y, d2y, dz -> ได้พิกัด 3D และ Distance3D)
+    [HttpPost("triangulate3d")]
+    public IActionResult TriangulateReverse3D([FromBody] ImageOffsetInput input)
     {
-        var result = _triangulator.CalculateReverseTriangulation(input.OffsetTop, input.OffsetBottom);
+        var result = _triangulator.CalculateReverseTriangulation3D(input.OffsetTop, input.OffsetBottom, input.OffsetZ);
         return Ok(result);
     }
 }
